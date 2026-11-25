@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">VoxShift</string>
+    <string name="mic_permission_title">Microphone Access Needed</string>
+    <string name="mic_permission_rationale">VoxShift needs microphone access for real-time VoIP calls and live voice pitch shifting.</string>
+    <string name="mic_permission_grant">Allow Microphone</string>
+    <string name="mic_permission_settings">Open Settings</string>
+    <string name="mic_permission_dismiss">Later</string>
+    <string name="copied_room_code">Room code copied</string>
+    <string name="share_app_button">Share App File</string>
+    <string name="share_sheet_title">Share VoxShift App File</string>
+    <string name="share_sheet_subtitle">Send via WhatsApp, Telegram, Nearby Share, or Drive</string>
+    <string name="share_apk_title">Android App (VoxShift.apk)</string>
+    <string name="share_apk_subtitle">Installable Android APK package</string>
+    <string name="share_apk_subtitle_with_size">Installable Android APK package · %1$s</string>
+    <string name="share_html_title">Standalone Web App (VoxShift-VoIP.html)</string>
+    <string name="share_html_subtitle">Single-file HTML VoIP app for any browser</string>
+    <string name="share_html_subtitle_with_size">Single-file HTML VoIP app for any browser · %1$s</string>
+</resources>

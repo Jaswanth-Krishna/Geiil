@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "BlockedNumber": {
+      "title": "BlockedNumber",
+      "description": "An Indian (+91) phone number or room ID blacklisted by the signed-in user to block incoming and outgoing calls.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Normalized Indian phone number (+91XXXXXXXXXX) or 6-digit room code."
+        },
+        "displayLabel": {
+          "type": "string",
+          "description": "Optional display label or caller note."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Optional reason for blocking (e.g., Spam, Last Caller)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on updates."
+        }
+      },
+      "required": ["userId", "phoneNumber", "createdAt", "updatedAt"]
+    },
+    "AudioTranscript": {
+      "title": "AudioTranscript",
+      "description": "An audio recording transcribed using Gemini via Firebase AI Logic.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "transcriptText": {
+          "type": "string",
+          "description": "Transcribed text returned by Gemini."
+        },
+        "durationSec": {
+          "type": "integer",
+          "description": "Duration of the audio recording in seconds."
+        },
+        "languageHint": {
+          "type": "string",
+          "description": "Optional language label such as English / Hindi / Hinglish."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp() on updates."
+        }
+      },
+      "required": ["userId", "transcriptText", "durationSec", "createdAt", "updatedAt"]
+    },
+    "CallLog": {
+      "title": "CallLog",
+      "description": "A user-scoped VoIP call history record persisted in Cloud Firestore.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "roomCode": { "type": "string" },
+        "callerNumber": { "type": "string" },
+        "direction": { "type": "string" },
+        "status": { "type": "string" },
+        "voicePreset": { "type": "string" },
+        "durationSec": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "roomCode", "direction", "status", "voicePreset", "durationSec", "createdAt"]
+    },
+    "CallRoom": {
+      "title": "CallRoom",
+      "description": "Temporary 6-digit WebRTC signaling room shared between an authenticated Host and Caller.",
+      "type": "object",
+      "properties": {
+        "hostUid": { "type": "string" },
+        "callerUid": { "type": "string" },
+        "status": { "type": "string" },
+        "offerType": { "type": "string" },
+        "offerSdp": { "type": "string" },
+        "answerType": { "type": "string" },
+        "answerSdp": { "type": "string" },
+        "callerNumber": { "type": "string" },
+        "blocked": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["hostUid", "status", "createdAt", "updatedAt"]
+    },
+    "IceCandidate": {
+      "title": "IceCandidate",
+      "description": "A WebRTC ICE candidate exchanged inside an active CallRoom.",
+      "type": "object",
+      "properties": {
+        "senderUid": { "type": "string" },
+        "role": { "type": "string" },
+        "candidateJson": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderUid", "role", "candidateJson", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/blockedNumbers/{entryId}": {
+      "schema": { "$ref": "#/entities/BlockedNumber" },
+      "description": "User-scoped list of blocked Indian phone numbers and room IDs."
+    },
+    "/users/{userId}/transcripts/{transcriptId}": {
+      "schema": { "$ref": "#/entities/AudioTranscript" },
+      "description": "User-scoped history of Gemini microphone audio transcriptions."
+    },
+    "/users/{userId}/callLogs/{logId}": {
+      "schema": { "$ref": "#/entities/CallLog" },
+      "description": "User-scoped history of VoIP calls with duration, voice preset, and caller number."
+    },
+    "/callRooms/{roomCode}": {
+      "schema": { "$ref": "#/entities/CallRoom" },
+      "description": "Ephemeral 6-digit WebRTC signaling room for SDP offer/answer exchange."
+    },
+    "/callRooms/{roomCode}/candidates/{candidateId}": {
+      "schema": { "$ref": "#/entities/IceCandidate" },
+      "description": "WebRTC ICE candidates for an active 6-digit call room."
+    }
+  }
+}

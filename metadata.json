@@ -1,0 +1,6 @@
+{
+  "name": "VoxShift",
+  "description": "Real-time VoIP voice dialer with live Web Audio pitch & formant shifting, WebRTC signaling, and Firebase Realtime Database call logs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

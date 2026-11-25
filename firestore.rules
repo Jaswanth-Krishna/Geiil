@@ -1,0 +1,220 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidRoomCode(code) {
+      return code is string && code.matches('^([0-9]{6}|91[6-9][0-9]{9})$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isRoomParticipant(roomData) {
+      return isSignedIn() && (
+        roomData.hostUid == request.auth.uid ||
+        ('callerUid' in roomData && roomData.callerUid == request.auth.uid)
+      );
+    }
+
+    function isValidBlockedNumber(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.phoneNumber is string &&
+             data.phoneNumber.size() >= 6 &&
+             data.phoneNumber.size() <= 20 &&
+             data.phoneNumber.matches('^(\\+91[6-9][0-9]{9}|[0-9]{6})$') &&
+             (!('displayLabel' in data) || (data.displayLabel is string && data.displayLabel.size() <= 60)) &&
+             (!('reason' in data) || (data.reason is string && data.reason.size() <= 120)) &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    function isValidAudioTranscript(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.transcriptText is string &&
+             data.transcriptText.size() >= 1 &&
+             data.transcriptText.size() <= 10000 &&
+             data.durationSec is int &&
+             data.durationSec >= 0 &&
+             data.durationSec <= 3600 &&
+             (!('languageHint' in data) || (data.languageHint is string && data.languageHint.size() <= 40)) &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    function isValidCallLog(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.roomCode is string &&
+             data.roomCode.matches('^([0-9]{6}|91[6-9][0-9]{9})$') &&
+             (!('callerNumber' in data) || (data.callerNumber is string && data.callerNumber.matches('^(\\+91[6-9][0-9]{9}|[0-9]{6})$'))) &&
+             data.direction in ['Outgoing', 'Incoming'] &&
+             data.status in ['Completed', 'Declined', 'Missed', 'Blocked'] &&
+             data.voicePreset is string &&
+             data.voicePreset.size() >= 1 &&
+             data.voicePreset.size() <= 60 &&
+             data.durationSec is int &&
+             data.durationSec >= 0 &&
+             data.durationSec <= 86400 &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time;
+    }
+
+    function isValidCallRoom(data) {
+      return data.hostUid is string &&
+             data.hostUid.size() >= 1 &&
+             data.hostUid.size() <= 128 &&
+             data.status in ['waiting', 'ringing', 'connected', 'declined', 'ended'] &&
+             (!('callerUid' in data) || (data.callerUid is string && data.callerUid.size() >= 1 && data.callerUid.size() <= 128)) &&
+             (!('offerType' in data) || data.offerType == 'offer') &&
+             (!('offerSdp' in data) || (data.offerSdp is string && data.offerSdp.size() <= 32768)) &&
+             (!('answerType' in data) || data.answerType == 'answer') &&
+             (!('answerSdp' in data) || (data.answerSdp is string && data.answerSdp.size() <= 32768)) &&
+             (!('callerNumber' in data) || (data.callerNumber is string && data.callerNumber.matches('^(\\+91[6-9][0-9]{9}|[0-9]{6})$'))) &&
+             (!('blocked' in data) || data.blocked is bool) &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    match /users/{userId}/blockedNumbers/{entryId} {
+      allow get: if isOwner(userId) && isValidId(entryId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(entryId) &&
+                       incoming().keys().hasAll(['userId', 'phoneNumber', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'phoneNumber', 'displayLabel', 'reason', 'createdAt', 'updatedAt']) &&
+                       isValidBlockedNumber(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(entryId) &&
+                       isValidBlockedNumber(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().phoneNumber == existing().phoneNumber &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayLabel', 'reason', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(entryId);
+    }
+
+    match /users/{userId}/transcripts/{transcriptId} {
+      allow get: if isOwner(userId) && isValidId(transcriptId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(transcriptId) &&
+                       incoming().keys().hasAll(['userId', 'transcriptText', 'durationSec', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'transcriptText', 'durationSec', 'languageHint', 'createdAt', 'updatedAt']) &&
+                       isValidAudioTranscript(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(transcriptId) &&
+                       isValidAudioTranscript(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['transcriptText', 'languageHint', 'updatedAt']);
+
+      allow delete: if isOwner(userId) && isValidId(transcriptId);
+    }
+
+    match /users/{userId}/callLogs/{logId} {
+      allow get: if isOwner(userId) && isValidId(logId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(logId) &&
+                       incoming().keys().hasAll(['userId', 'roomCode', 'direction', 'status', 'voicePreset', 'durationSec', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'roomCode', 'callerNumber', 'direction', 'status', 'voicePreset', 'durationSec', 'createdAt']) &&
+                       isValidCallLog(incoming(), userId);
+
+      allow update: if false;
+      allow delete: if isOwner(userId) && isValidId(logId);
+    }
+
+    match /callRooms/{roomCode} {
+      allow get: if isSignedIn() && isValidRoomCode(roomCode);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+                       isValidRoomCode(roomCode) &&
+                       incoming().keys().hasAll(['hostUid', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['hostUid', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().hostUid == request.auth.uid &&
+                       incoming().status == 'waiting' &&
+                       isValidCallRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidRoomCode(roomCode) &&
+                       incoming().keys().hasOnly(['hostUid', 'callerUid', 'status', 'offerType', 'offerSdp', 'answerType', 'answerSdp', 'callerNumber', 'blocked', 'createdAt', 'updatedAt']) &&
+                       incoming().hostUid == existing().hostUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidCallRoom(incoming()) &&
+                       (
+                         isRoomParticipant(existing()) ||
+                         (
+                           existing().status == 'waiting' &&
+                           !('callerUid' in existing()) &&
+                           incoming().status == 'ringing' &&
+                           'callerUid' in incoming() &&
+                           incoming().callerUid == request.auth.uid
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidRoomCode(roomCode) && isRoomParticipant(existing());
+
+      match /candidates/{candidateId} {
+        allow get, list: if isSignedIn() &&
+                            isValidRoomCode(roomCode) &&
+                            isRoomParticipant(get(/databases/$(database)/documents/callRooms/$(roomCode)).data);
+
+        allow create: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isValidId(candidateId) &&
+                         incoming().keys().hasAll(['senderUid', 'role', 'candidateJson', 'createdAt']) &&
+                         incoming().keys().hasOnly(['senderUid', 'role', 'candidateJson', 'createdAt']) &&
+                         incoming().senderUid == request.auth.uid &&
+                         incoming().role in ['caller', 'callee'] &&
+                         incoming().candidateJson is string &&
+                         incoming().candidateJson.size() >= 2 &&
+                         incoming().candidateJson.size() <= 4096 &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isRoomParticipant(get(/databases/$(database)/documents/callRooms/$(roomCode)).data);
+
+        allow update: if false;
+
+        allow delete: if isSignedIn() &&
+                         isValidRoomCode(roomCode) &&
+                         isRoomParticipant(get(/databases/$(database)/documents/callRooms/$(roomCode)).data);
+      }
+    }
+  }
+}

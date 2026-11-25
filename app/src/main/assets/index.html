@@ -1,0 +1,4346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#090C14" />
+  <title>VoxShift — Live Voice Pitch VoIP Dialer</title>
+  <style>
+    :root {
+      --bg-base: #090c14;
+      --bg-elevated: #111625;
+      --bg-card: #161d31;
+      --bg-card-hover: #1c2640;
+      --bg-input: #0d1220;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(34, 211, 238, 0.38);
+
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --accent-cyan: #22d3ee;
+      --accent-cyan-dim: rgba(34, 211, 238, 0.14);
+      --accent-violet: #a78bfa;
+      --accent-violet-dim: rgba(167, 139, 250, 0.16);
+      --accent-emerald: #10b981;
+      --accent-emerald-dim: rgba(16, 185, 129, 0.16);
+      --accent-rose: #f43f5e;
+      --accent-rose-dim: rgba(244, 63, 94, 0.16);
+      --accent-amber: #f59e0b;
+      --accent-amber-dim: rgba(245, 158, 11, 0.16);
+
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --radius-pill: 999px;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    /* Ambient atmospheric backdrop */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 40% at 15% 0%, rgba(34, 211, 238, 0.11), transparent 65%),
+        radial-gradient(ellipse 65% 40% at 90% 10%, rgba(167, 139, 250, 0.10), transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    /* Header */
+    .top-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(9, 12, 20, 0.85);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(167, 139, 250, 0.25));
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 18px rgba(34, 211, 238, 0.18);
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #f8fafc, #a5f3fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 11px;
+      border-radius: var(--radius-pill);
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-chip.ready .status-dot { background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); }
+    .status-chip.ready { color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3); }
+    .status-chip.waiting .status-dot { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); animation: pulse-dot 1.4s infinite; }
+    .status-chip.waiting { color: #67e8f9; border-color: rgba(34, 211, 238, 0.35); }
+    .status-chip.live .status-dot { background: var(--accent-emerald); box-shadow: 0 0 10px var(--accent-emerald); animation: pulse-dot 1s infinite; }
+    .status-chip.live { color: #34d399; border-color: rgba(16, 185, 129, 0.45); background: var(--accent-emerald-dim); }
+    .status-chip.warn .status-dot { background: var(--accent-amber); }
+    .status-chip.warn { color: #fcd34d; border-color: rgba(245, 158, 11, 0.35); }
+
+    @keyframes pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.45); opacity: 0.55; }
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+    }
+
+    .icon-btn:active { transform: scale(0.94); }
+    .icon-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+    /* Firebase Warning Banner */
+    .config-banner {
+      flex-shrink: 0;
+      margin: 10px 14px 0;
+      padding: 11px 13px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(244, 63, 94, 0.08));
+      border: 1px solid rgba(245, 158, 11, 0.38);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .config-banner.hidden { display: none; }
+
+    .config-banner-text {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #fde68a;
+    }
+
+    .config-banner-text strong {
+      color: #fffbeb;
+      display: block;
+      font-size: 12.5px;
+      margin-bottom: 2px;
+    }
+
+    .config-banner-btn {
+      flex-shrink: 0;
+      padding: 8px 12px;
+      min-height: 36px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      background: rgba(245, 158, 11, 0.22);
+      color: #fffbeb;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Main Scroll Viewport */
+    .main-viewport {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 14px 18px;
+      scrollbar-width: none;
+    }
+    .main-viewport::-webkit-scrollbar { display: none; }
+
+    .view-panel { display: none; flex-direction: column; gap: 12px; }
+    .view-panel.active { display: flex; }
+
+    /* Cards */
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .card-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Waveform Visualizer Card */
+    .wave-card {
+      padding: 12px 14px;
+      background: linear-gradient(180deg, rgba(22, 29, 49, 0.92), rgba(13, 18, 32, 0.96));
+      border: 1px solid rgba(34, 211, 238, 0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wave-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .preset-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11.5px;
+      font-weight: 600;
+      background: var(--accent-violet-dim);
+      color: #ddd6fe;
+      border: 1px solid rgba(167, 139, 250, 0.3);
+    }
+
+    .wave-canvas-wrap {
+      width: 100%;
+      height: 58px;
+      border-radius: 12px;
+      background: rgba(9, 12, 20, 0.65);
+      border: 1px solid rgba(148, 163, 184, 0.08);
+      overflow: hidden;
+    }
+
+    canvas.wave-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Segmented Mode Switcher */
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      padding: 5px;
+      border-radius: 15px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .mode-btn {
+      min-height: 44px;
+      border: none;
+      border-radius: 11px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(167, 139, 250, 0.2));
+      color: var(--text-primary);
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Caller Mode UI */
+    .mode-panel { display: none; flex-direction: column; gap: 12px; }
+    .mode-panel.active { display: flex; }
+
+    .room-input-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 6px 10px 6px 14px;
+      transition: border-color 0.2s;
+    }
+
+    .room-input-box:focus-within {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+    }
+
+    .room-code-input {
+      flex: 1;
+      width: 100%;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .room-code-input::placeholder {
+      color: rgba(100, 116, 139, 0.45);
+      letter-spacing: 0.22em;
+    }
+
+    .dialpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .dial-key {
+      min-height: 52px;
+      border-radius: 14px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 21px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.14s ease, border-color 0.14s ease;
+    }
+
+    .dial-key span.sub {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: -2px;
+    }
+
+    .dial-key:active {
+      transform: scale(0.94);
+      background: rgba(34, 211, 238, 0.18);
+      border-color: var(--accent-cyan);
+    }
+
+    .dial-key.util {
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: rgba(17, 22, 37, 0.85);
+    }
+
+    /* Primary & Secondary CTA Buttons */
+    .btn-primary {
+      width: 100%;
+      min-height: 54px;
+      border: none;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #06b6d4, #6366f1);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(6, 182, 212, 0.28);
+      transition: transform 0.12s, filter 0.15s, opacity 0.15s;
+    }
+
+    .btn-primary:active { transform: scale(0.98); filter: brightness(1.08); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+
+    .btn-emerald {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      box-shadow: 0 8px 24px rgba(244, 63, 94, 0.3);
+    }
+
+    .btn-secondary {
+      min-height: 46px;
+      padding: 0 14px;
+      border-radius: 13px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 13.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .btn-secondary:active { transform: scale(0.96); }
+
+    /* Host Mode Room Display */
+    .host-code-card {
+      text-align: center;
+      padding: 18px 14px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(167, 139, 250, 0.05));
+      border: 1px dashed rgba(34, 211, 238, 0.38);
+    }
+
+    .host-code-hint {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .host-code-digits {
+      font-family: var(--font-mono);
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: #f8fafc;
+      text-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+      margin-bottom: 14px;
+      user-select: text;
+    }
+
+    .host-actions-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .host-listening-status {
+      margin-top: 12px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* Voice Pitch Studio */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .preset-pill {
+      min-height: 48px;
+      padding: 9px 11px;
+      border-radius: 13px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      transition: all 0.16s ease;
+    }
+
+    .preset-pill .p-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .preset-pill .p-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .preset-pill.active {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(167, 139, 250, 0.22));
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 4px 16px rgba(34, 211, 238, 0.12);
+    }
+
+    .preset-pill.active .p-meta { color: #67e8f9; }
+
+    /* Slider Controls */
+    .slider-block {
+      margin-bottom: 12px;
+    }
+
+    .slider-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12.5px;
+    }
+
+    .slider-val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--accent-cyan);
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--accent-cyan-dim);
+      cursor: pointer;
+    }
+
+    input[type="range"].styled-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 99px;
+      background: #232d45;
+      outline: none;
+    }
+
+    input[type="range"].styled-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #22d3ee, #a78bfa);
+      border: 2px solid #090c14;
+      box-shadow: 0 0 12px rgba(34, 211, 238, 0.5);
+      cursor: pointer;
+    }
+
+    .slider-ticks {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 4px;
+    }
+
+    /* Monitor Toggle Row */
+    .monitor-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 12px;
+      border-radius: 13px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .monitor-info strong {
+      display: block;
+      font-size: 13.5px;
+      color: var(--text-primary);
+    }
+
+    .monitor-info small {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .switch-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 99px;
+      background: #27324a;
+      border: 1px solid var(--border-subtle);
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    .switch-track::before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 2px;
+      top: 2px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      transition: transform 0.2s;
+    }
+
+    .switch input:checked + .switch-track {
+      background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+      border-color: transparent;
+    }
+
+    .switch input:checked + .switch-track::before {
+      transform: translateX(22px);
+      background: #ffffff;
+    }
+
+    /* Call Logs View */
+    .logs-header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2px 2px 6px;
+    }
+
+    .logs-title-group h2 {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .logs-title-group p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .btn-clear-logs {
+      min-height: 38px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      background: var(--accent-rose-dim);
+      color: #fda4af;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .confirm-clear-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      font-size: 12.5px;
+      color: #fecdd3;
+    }
+
+    .confirm-clear-bar.open { display: flex; }
+
+    .logs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .log-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 12px 13px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .log-dir-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .log-dir-icon.completed { background: var(--accent-emerald-dim); color: #34d399; }
+    .log-dir-icon.declined { background: var(--accent-rose-dim); color: #fb7185; }
+    .log-dir-icon.blocked { background: var(--accent-rose-dim); color: #fda4af; }
+    .log-dir-icon.missed { background: var(--accent-amber-dim); color: #fbbf24; }
+
+    .log-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .log-row-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+
+    .log-room {
+      font-family: var(--font-mono);
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-primary);
+    }
+
+    .log-badge {
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+    }
+
+    .log-badge.completed { background: var(--accent-emerald-dim); color: #6ee7b7; }
+    .log-badge.declined { background: var(--accent-rose-dim); color: #fda4af; }
+    .log-badge.blocked { background: rgba(244, 63, 94, 0.25); color: #fecdd3; border: 1px solid rgba(244, 63, 94, 0.45); }
+    .log-badge.missed { background: var(--accent-amber-dim); color: #fcd34d; }
+
+    .log-meta {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .log-preset-pill {
+      display: inline-block;
+      margin-top: 5px;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--accent-violet-dim);
+      color: #ddd6fe;
+      border: 1px solid rgba(167, 139, 250, 0.22);
+    }
+
+    .log-actions-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-call-again {
+      flex-shrink: 0;
+      min-width: 72px;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      background: var(--accent-cyan-dim);
+      color: #67e8f9;
+      font-size: 11.5px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .btn-call-again:active { transform: scale(0.94); }
+
+    .btn-block-row {
+      flex-shrink: 0;
+      min-width: 72px;
+      min-height: 34px;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      background: var(--accent-rose-dim);
+      color: #fda4af;
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .btn-block-row.is-blocked {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: var(--accent-emerald-dim);
+      color: #6ee7b7;
+    }
+
+    .btn-block-row:active { transform: scale(0.94); }
+
+    /* Optional Indian +91 Caller ID Strip */
+    .caller-id-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(10, 14, 24, 0.72);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .caller-id-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .caller-id-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .india-prefix-badge {
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(34, 211, 238, 0.14);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: #67e8f9;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .india-number-input {
+      flex: 1;
+      min-width: 0;
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .india-number-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Block Last Caller Banner & Blacklist Card */
+    .last-caller-card {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 13px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.14), rgba(17, 22, 37, 0.92));
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .last-caller-card.show { display: flex; }
+
+    .last-caller-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .last-caller-kicker {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #fda4af;
+      margin-bottom: 2px;
+    }
+
+    .last-caller-num {
+      font-family: var(--font-mono);
+      font-size: 14.5px;
+      font-weight: 800;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .last-caller-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .btn-block-last {
+      min-height: 42px;
+      padding: 0 13px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .btn-block-last.unblock {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+
+    .blocklist-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .blocklist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .blocklist-header h3 {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .blocklist-count {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: var(--accent-rose-dim);
+      color: #fda4af;
+    }
+
+    .blocklist-input-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .btn-add-block {
+      min-height: 40px;
+      padding: 0 13px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .blocklist-chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .blocklist-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 99px;
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      color: #fecdd3;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .blocklist-chip button {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(244, 63, 94, 0.32);
+      color: #ffffff;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+
+    .blocklist-empty-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .incoming-caller-sub {
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: #67e8f9;
+      min-height: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 44px 20px;
+      border-radius: var(--radius-lg);
+      background: var(--bg-elevated);
+      border: 1px dashed var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .empty-state svg { opacity: 0.45; margin-bottom: 10px; }
+    .empty-state h3 { font-size: 15px; color: var(--text-primary); margin-bottom: 4px; }
+    .empty-state p { font-size: 12.5px; color: var(--text-muted); }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px 16px 10px;
+      background: rgba(11, 15, 26, 0.94);
+      border-top: 1px solid var(--border-subtle);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav-tab {
+      min-height: 48px;
+      border: none;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      position: relative;
+    }
+
+    .nav-tab.active {
+      background: rgba(34, 211, 238, 0.12);
+      color: var(--accent-cyan);
+    }
+
+    .nav-badge {
+      position: absolute;
+      top: 5px;
+      right: calc(50% - 26px);
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 99px;
+      background: var(--accent-violet);
+      color: #090c14;
+      font-size: 10px;
+      font-weight: 800;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-badge.show { display: inline-flex; }
+
+    /* Overlays (Incoming Call & Active Call & Config Modal) */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(7, 10, 18, 0.95);
+      backdrop-filter: blur(20px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(28px + var(--safe-top)) 20px calc(28px + var(--safe-bottom));
+    }
+
+    .overlay.open { display: flex; }
+
+    .overlay-inner {
+      width: 100%;
+      max-width: 460px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    /* Incoming Call Ring Animation */
+    .ring-avatar-wrap {
+      position: relative;
+      width: 128px;
+      height: 128px;
+      margin: 18px auto 12px;
+      display: grid;
+      place-items: center;
+    }
+
+    .ring-pulse {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(34, 211, 238, 0.5);
+      animation: ring-expand 1.8s ease-out infinite;
+    }
+
+    .ring-pulse.delay { animation-delay: 0.9s; }
+
+    @keyframes ring-expand {
+      0% { transform: scale(0.75); opacity: 0.9; }
+      100% { transform: scale(1.65); opacity: 0; }
+    }
+
+    .ring-core {
+      width: 88px;
+      height: 88px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 36px rgba(34, 211, 238, 0.45);
+      position: relative;
+      z-index: 2;
+    }
+
+    .call-title-center {
+      text-align: center;
+    }
+
+    .call-state-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent-cyan);
+      margin-bottom: 6px;
+    }
+
+    .call-room-hero {
+      font-family: var(--font-mono);
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      color: #ffffff;
+    }
+
+    .call-timer-hero {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 700;
+      color: #34d399;
+      margin-top: 4px;
+      letter-spacing: 0.08em;
+    }
+
+    .incoming-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+      padding-bottom: 12px;
+    }
+
+    .call-circle-btn-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .call-circle-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: none;
+      color: #ffffff;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .call-circle-btn:active { transform: scale(0.92); }
+    .call-circle-btn.accept { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 28px rgba(16, 185, 129, 0.45); }
+    .call-circle-btn.decline { background: linear-gradient(135deg, #f43f5e, #e11d48); box-shadow: 0 10px 28px rgba(244, 63, 94, 0.45); }
+    .call-circle-btn.secondary-act {
+      width: 60px;
+      height: 60px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+    .call-circle-btn.secondary-act.active {
+      background: rgba(244, 63, 94, 0.22);
+      border-color: var(--accent-rose);
+      color: #fda4af;
+    }
+    .call-circle-btn.secondary-act.monitor-on {
+      background: rgba(34, 211, 238, 0.22);
+      border-color: var(--accent-cyan);
+      color: #67e8f9;
+    }
+
+    .call-circle-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .active-call-dock {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 8px 0 6px;
+    }
+
+    .incall-controls-card {
+      background: rgba(17, 22, 37, 0.88);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .incall-presets-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+    }
+
+    .incall-pill {
+      min-height: 42px;
+      padding: 6px 10px;
+      border-radius: 11px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .incall-pill.active {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(167, 139, 250, 0.24));
+      border-color: var(--accent-cyan);
+      color: #ffffff;
+    }
+
+    /* Firebase Setup Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: rgba(5, 8, 15, 0.84);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 86dvh;
+      overflow-y: auto;
+    }
+
+    .modal-card h3 { font-size: 17px; font-weight: 700; }
+    .modal-card p { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+
+    .config-textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 11px;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      color: #a5f3fc;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.45;
+      resize: vertical;
+      outline: none;
+      user-select: text;
+    }
+
+    .config-textarea:focus { border-color: var(--accent-cyan); }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(74px + var(--safe-bottom));
+      transform: translateX(-50%) translateY(20px);
+      z-index: 90;
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid rgba(34, 211, 238, 0.35);
+      padding: 10px 16px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      max-width: calc(100vw - 32px);
+      text-align: center;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Hidden remote audio element */
+    #remoteAudio { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M5 10v4M9 6v12M13 3v18M17 7v10M21 10v4" stroke="url(#vxGrad)" stroke-width="2.4" stroke-linecap="round"/>
+            <defs>
+              <linearGradient id="vxGrad" x1="5" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#22D3EE"/>
+                <stop offset="1" stop-color="#A78BFA"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">VoxShift</div>
+          <div class="brand-sub">Live Pitch VoIP Dialer</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div id="statusChip" class="status-chip warn">
+          <span class="status-dot"></span>
+          <span id="statusChipText">Setup</span>
+        </div>
+        <button id="shareAppBtn" class="icon-btn" title="Share App File" aria-label="Share App File">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+        </button>
+        <button id="openConfigBtn" class="icon-btn" title="Firebase Config" aria-label="Firebase Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Graceful Warning Banner if firebaseConfig still has placeholder values -->
+    <div id="configBanner" class="config-banner hidden" role="alert">
+      <div class="config-banner-text">
+        <strong>Firebase RTDB Not Configured</strong>
+        Paste your project credentials in <code>firebaseConfig</code> (top of script) or tap Configure. Voice test still works locally.
+      </div>
+      <button id="bannerConfigBtn" class="config-banner-btn">Configure</button>
+    </div>
+
+    <!-- Main Scroll Area -->
+    <main class="main-viewport">
+      <!-- TAB 1: DIALER -->
+      <section id="dialerView" class="view-panel active" aria-label="Dialer">
+        <!-- Live Audio Waveform Visualizer -->
+        <div class="card wave-card">
+          <div class="wave-top">
+            <span class="card-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" stroke-width="2.2">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+              Live Vocal Signal
+            </span>
+            <span id="activePresetBadge" class="preset-badge">Normal (0 st)</span>
+          </div>
+          <div class="wave-canvas-wrap">
+            <canvas id="mainWaveCanvas" class="wave-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Mode Switcher: Place Call vs Receive Call -->
+        <div class="mode-switch" role="tablist">
+          <button id="modeCallerBtn" class="mode-btn active" role="tab" aria-selected="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Place Call
+          </button>
+          <button id="modeHostBtn" class="mode-btn" role="tab" aria-selected="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M16 2v6h6"/>
+              <path d="M22 2l-6 6"/>
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Receive Call
+          </button>
+        </div>
+
+        <!-- CALLER MODE PANEL (Direct Indian +91 Dialer — No Room ID Needed) -->
+        <div id="callerPanel" class="card mode-panel active">
+          <div class="room-input-box" style="display:flex;align-items:center;gap:8px;padding:8px 12px;">
+            <span class="india-prefix-badge" style="font-size:16px;padding:8px 12px;">+91</span>
+            <input
+              id="roomCodeInput"
+              class="room-code-input"
+              style="letter-spacing:0.1em;font-size:24px;text-align:left;"
+              type="tel"
+              inputmode="numeric"
+              maxlength="10"
+              placeholder="98765 43210"
+              aria-label="Friend's 10-digit Indian mobile number"
+              autocomplete="off"
+            />
+          </div>
+
+          <div class="dialpad-grid" id="dialpad">
+            <button class="dial-key" data-key="1">1<span class="sub">&nbsp;</span></button>
+            <button class="dial-key" data-key="2">2<span class="sub">ABC</span></button>
+            <button class="dial-key" data-key="3">3<span class="sub">DEF</span></button>
+            <button class="dial-key" data-key="4">4<span class="sub">GHI</span></button>
+            <button class="dial-key" data-key="5">5<span class="sub">JKL</span></button>
+            <button class="dial-key" data-key="6">6<span class="sub">MNO</span></button>
+            <button class="dial-key" data-key="7">7<span class="sub">PQRS</span></button>
+            <button class="dial-key" data-key="8">8<span class="sub">TUV</span></button>
+            <button class="dial-key" data-key="9">9<span class="sub">WXYZ</span></button>
+            <button class="dial-key util" data-action="clear">Clear</button>
+            <button class="dial-key" data-key="0">0<span class="sub">+</span></button>
+            <button class="dial-key util" data-action="backspace" aria-label="Backspace">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+                <line x1="18" y1="9" x2="12" y2="15"/>
+                <line x1="12" y1="9" x2="18" y2="15"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="caller-id-strip">
+            <div class="caller-id-label">
+              <span>Your Indian Mobile (+91)</span>
+              <span style="color:var(--text-muted);font-weight:500;">Optional · Used for Call Logs</span>
+            </div>
+            <div class="caller-id-row">
+              <span class="india-prefix-badge">+91</span>
+              <input
+                id="callerNumberInput"
+                class="india-number-input"
+                type="tel"
+                inputmode="numeric"
+                maxlength="14"
+                placeholder="98765 43210"
+                aria-label="Your Indian 10-digit mobile number"
+                autocomplete="tel"
+              />
+            </div>
+          </div>
+
+          <button id="callNowBtn" class="btn-primary btn-emerald" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            Call Now (Female Voice)
+          </button>
+
+          <p style="font-size:11.5px;color:var(--text-muted);text-align:center;line-height:1.45;margin-top:2px;">
+            Direct +91 VoIP call — no Room ID pairing needed. Both phones must have VoxShift online (Android blocks third-party apps from changing regular SIM call audio).
+          </p>
+        </div>
+
+        <!-- RECEIVE CALL PANEL (My +91 Number — No Room ID Sharing Needed) -->
+        <div id="hostPanel" class="card mode-panel">
+          <div class="host-code-card">
+            <div class="host-code-hint">Enter your Indian +91 number to receive direct calls (no Room ID needed)</div>
+            <div class="caller-id-row" style="width:100%;max-width:300px;margin:6px auto 10px;">
+              <span class="india-prefix-badge" style="font-size:15px;">+91</span>
+              <input
+                id="myReceiveNumberInput"
+                class="india-number-input"
+                style="font-size:18px;letter-spacing:0.06em;"
+                type="tel"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="98765 43210"
+                aria-label="Your 10-digit Indian mobile number to receive calls"
+                autocomplete="tel"
+              />
+            </div>
+            <div id="hostCodeDisplay" class="host-code-digits" style="font-size:20px;letter-spacing:0.08em;">+91 —</div>
+            <div id="hostListeningStatus" class="host-listening-status">
+              Tap "Go Online" so friends can call your +91 number directly.
+            </div>
+          </div>
+
+          <button id="toggleHostBtn" class="btn-primary">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+              <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+              <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+              <circle cx="12" cy="20" r="1"/>
+            </svg>
+            <span id="toggleHostBtnText">Go Online on My +91 Number</span>
+          </button>
+        </div>
+
+        <!-- VOICE PITCH & FORMANT STUDIO -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2.2">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+              Voice Pitch &amp; Formant Lab
+            </span>
+          </div>
+
+          <div class="presets-grid" id="mainPresetsGrid">
+            <button class="preset-pill" data-preset="normal">
+              <span class="p-name">Normal</span>
+              <span class="p-meta">0.0 st · Clean Bypass</span>
+            </button>
+            <button class="preset-pill active" data-preset="femaleSoft">
+              <span class="p-name">Female Soft</span>
+              <span class="p-meta">+4.5 st · Natural EQ</span>
+            </button>
+            <button class="preset-pill" data-preset="femaleBright">
+              <span class="p-name">Female Bright</span>
+              <span class="p-meta">+6.5 st · Bright Formant</span>
+            </button>
+            <button class="preset-pill" data-preset="deepVoice">
+              <span class="p-name">Deep Voice</span>
+              <span class="p-meta">-4.5 st · Warm Low-Mid</span>
+            </button>
+          </div>
+
+          <div class="slider-block">
+            <div class="slider-head">
+              <span style="color: var(--text-secondary); font-weight: 600;">Pitch Shift (Semitones)</span>
+              <span id="semitoneReadout" class="slider-val" title="Tap to reset to 0">+4.5 st</span>
+            </div>
+            <input id="semitoneSlider" class="styled-range" type="range" min="-8" max="8" step="0.5" value="4.5" aria-label="Pitch Shift Semitones" />
+            <div class="slider-ticks">
+              <span>-8 st</span><span>-4</span><span>0</span><span>+4</span><span>+8 st</span>
+            </div>
+          </div>
+
+          <div class="monitor-row">
+            <div class="monitor-info">
+              <strong>Test My Voice (Mic Monitor)</strong>
+              <small>Hear your live pitch-shifted voice. Use earphones to avoid speaker echo.</small>
+            </div>
+            <label class="switch" aria-label="Toggle Test My Voice Mic Monitor">
+              <input id="micMonitorToggle" type="checkbox" />
+              <span class="switch-track"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: CALL LOGS -->
+      <section id="logsView" class="view-panel" aria-label="Call Logs">
+        <div class="logs-header-bar">
+          <div class="logs-title-group">
+            <h2>Call History</h2>
+            <p id="logsSubtitle">Latest 30 calls synced in real time</p>
+          </div>
+          <button id="clearLogsBtn" class="btn-clear-logs">Clear All</button>
+        </div>
+
+        <div id="confirmClearBar" class="confirm-clear-bar">
+          <span>Delete all Firebase call logs?</span>
+          <div style="display:flex; gap:6px;">
+            <button id="cancelClearBtn" class="btn-secondary" style="min-height:34px; padding:0 10px; font-size:12px;">Cancel</button>
+            <button id="confirmClearBtn" class="btn-clear-logs" style="min-height:34px; background:#e11d48; color:#fff; border:none;">Delete</button>
+          </div>
+        </div>
+
+        <div id="lastCallerBanner" class="last-caller-card" aria-live="polite">
+          <div class="last-caller-info">
+            <div class="last-caller-kicker">Last Caller Quick Block</div>
+            <div id="lastCallerDisplay" class="last-caller-num">—</div>
+            <div id="lastCallerMeta" class="last-caller-sub">Add to blockedNumbers blacklist</div>
+          </div>
+          <button id="blockLastCallerBtn" class="btn-block-last">Block Last Caller</button>
+        </div>
+
+        <div id="blocklistCard" class="blocklist-card" aria-label="Blocked Indian Numbers">
+          <div class="blocklist-header">
+            <h3>Blocked Numbers (+91 &amp; Rooms)</h3>
+            <span id="blockedCountBadge" class="blocklist-count">0 blocked</span>
+          </div>
+          <div class="blocklist-input-row">
+            <span class="india-prefix-badge">+91</span>
+            <input
+              id="blockNumberInput"
+              class="india-number-input"
+              type="tel"
+              inputmode="numeric"
+              maxlength="14"
+              placeholder="98765 43210 or 6-digit room"
+              aria-label="Indian mobile number or 6-digit room to block"
+            />
+            <button id="addBlockBtn" class="btn-add-block">Block</button>
+          </div>
+          <div id="blockedChipsList" class="blocklist-chip-list">
+            <span class="blocklist-empty-hint">No blocked numbers yet. Incoming &amp; outgoing calls from blacklisted numbers are automatically stopped.</span>
+          </div>
+        </div>
+
+        <div id="logsList" class="logs-list"></div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav" aria-label="Primary Navigation">
+      <button id="navDialer" class="nav-tab active">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+          <circle cx="6" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18" cy="5" r="1.5" fill="currentColor"/>
+          <circle cx="6" cy="11" r="1.5" fill="currentColor"/><circle cx="12" cy="11" r="1.5" fill="currentColor"/><circle cx="18" cy="11" r="1.5" fill="currentColor"/>
+          <circle cx="6" cy="17" r="1.5" fill="currentColor"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/><circle cx="18" cy="17" r="1.5" fill="currentColor"/>
+        </svg>
+        Dialer
+      </button>
+      <button id="navLogs" class="nav-tab">
+        <span id="logsCountBadge" class="nav-badge">0</span>
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <polyline points="12 7 12 12 15.5 14"/>
+        </svg>
+        Call Logs
+      </button>
+    </nav>
+  </div>
+
+  <!-- INCOMING CALL OVERLAY (Host Mode) -->
+  <div id="incomingOverlay" class="overlay" role="dialog" aria-modal="true" aria-label="Incoming Call">
+    <div class="overlay-inner">
+      <div class="call-title-center" style="margin-top: 12px;">
+        <div class="call-state-label">Incoming Voice Call</div>
+        <div id="incomingRoomDisplay" class="call-room-hero">000 000</div>
+        <div id="incomingCallerSub" class="incoming-caller-sub"></div>
+        <div style="margin-top: 10px;">
+          <span id="incomingPresetPill" class="preset-badge">Voice: Normal (0 st)</span>
+        </div>
+      </div>
+
+      <div class="ring-avatar-wrap">
+        <div class="ring-pulse"></div>
+        <div class="ring-pulse delay"></div>
+        <div class="ring-core">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="incoming-actions">
+        <div class="call-circle-btn-wrap">
+          <button id="declineCallBtn" class="call-circle-btn decline" aria-label="Decline Call">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+              <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/>
+              <line x1="23" y1="1" x2="1" y2="23"/>
+            </svg>
+          </button>
+          <span class="call-circle-label">Decline</span>
+        </div>
+
+        <div class="call-circle-btn-wrap">
+          <button id="acceptCallBtn" class="call-circle-btn accept" aria-label="Accept Call">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+          </button>
+          <span class="call-circle-label">Accept</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE / OUTGOING CALL OVERLAY -->
+  <div id="activeCallOverlay" class="overlay" role="dialog" aria-modal="true" aria-label="Active Call">
+    <div class="overlay-inner">
+      <div class="call-title-center">
+        <div id="activeCallStatusText" class="call-state-label">Connecting...</div>
+        <div id="activeCallRoomText" class="call-room-hero">000 000</div>
+        <div id="activeCallTimer" class="call-timer-hero">00:00</div>
+      </div>
+
+      <div class="incall-controls-card">
+        <div class="wave-canvas-wrap" style="height: 54px;">
+          <canvas id="inCallWaveCanvas" class="wave-canvas"></canvas>
+        </div>
+
+        <div>
+          <div class="slider-head" style="margin-bottom: 7px;">
+            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">Live Voice Preset</span>
+            <span id="inCallSemitoneReadout" class="slider-val">0.0 st</span>
+          </div>
+          <div class="incall-presets-row" id="inCallPresetsRow">
+            <button class="incall-pill active" data-preset="normal">Normal (0)</button>
+            <button class="incall-pill" data-preset="femaleSoft">Female Soft (+4.5)</button>
+            <button class="incall-pill" data-preset="femaleBright">Female Bright (+6.5)</button>
+            <button class="incall-pill" data-preset="deepVoice">Deep (-4.5)</button>
+          </div>
+        </div>
+
+        <div>
+          <input id="inCallSemitoneSlider" class="styled-range" type="range" min="-8" max="8" step="0.5" value="0" aria-label="In-call Pitch Shift" />
+          <div class="slider-ticks"><span>-8 st</span><span>0</span><span>+8 st</span></div>
+        </div>
+
+        <div>
+          <div class="slider-head">
+            <span style="color: var(--text-secondary); font-weight: 600;">Speaker Volume</span>
+            <span id="speakerVolReadout" class="slider-val">100%</span>
+          </div>
+          <input id="speakerVolSlider" class="styled-range" type="range" min="0" max="100" step="1" value="100" aria-label="Speaker Volume" />
+        </div>
+      </div>
+
+      <div class="active-call-dock">
+        <div class="call-circle-btn-wrap">
+          <button id="muteToggleBtn" class="call-circle-btn secondary-act" aria-label="Mute Microphone">
+            <svg id="muteIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+          </button>
+          <span id="muteLabel" class="call-circle-label">Mute</span>
+        </div>
+
+        <div class="call-circle-btn-wrap">
+          <button id="endCallBtn" class="call-circle-btn decline" aria-label="End Call">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+              <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/>
+              <line x1="23" y1="1" x2="1" y2="23"/>
+            </svg>
+          </button>
+          <span class="call-circle-label">End Call</span>
+        </div>
+
+        <div class="call-circle-btn-wrap">
+          <button id="inCallMonitorBtn" class="call-circle-btn secondary-act" aria-label="Toggle Local Voice Monitor">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6"/>
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
+            </svg>
+          </button>
+          <span class="call-circle-label">Monitor</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE CONFIG MODAL (Optional Runtime Override) -->
+  <div id="configModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Firebase Configuration">
+    <div class="modal-card">
+      <h3>Firebase Realtime Database Config</h3>
+      <p>
+        Paste your Firebase web config JSON below (with <code>databaseURL</code> included), or edit
+        <code>const firebaseConfig = { ... }</code> directly at the top of <code>index.html</code>.
+      </p>
+      <textarea id="configTextarea" class="config-textarea" spellcheck="false" placeholder='{
+  "apiKey": "AIza...",
+  "authDomain": "your-app.firebaseapp.com",
+  "databaseURL": "https://your-app-default-rtdb.firebaseio.com",
+  "projectId": "your-app",
+  "storageBucket": "your-app.firebasestorage.app",
+  "messagingSenderId": "1234567890",
+  "appId": "1:1234567890:web:abcdef"
+}'></textarea>
+      <div class="modal-actions">
+        <button id="resetConfigBtn" class="btn-secondary" style="margin-right:auto; color:#fda4af;">Reset</button>
+        <button id="closeConfigBtn" class="btn-secondary">Cancel</button>
+        <button id="saveConfigBtn" class="btn-primary" style="width:auto; min-height:44px; padding:0 18px; font-size:14px;">Save &amp; Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="remoteAudio" autoplay playsinline></audio>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    // =========================================================================
+    // 1. FIREBASE REALTIME DATABASE CONFIGURATION
+    // Paste your Firebase Web App credentials from Firebase Console below.
+    // Make sure Realtime Database is enabled and `databaseURL` is set.
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // =========================================================================
+    // 2. MODULAR FIREBASE JS SDK v13.4.0 CDN IMPORTS
+    // =========================================================================
+    import { initializeApp, deleteApp, getApps } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      set,
+      get,
+      update,
+      push,
+      remove,
+      onValue,
+      onChildAdded,
+      onDisconnect,
+      query,
+      orderByChild,
+      limitToLast,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-database.js";
+
+    // =========================================================================
+    // 3. WEBRTC ICE / STUN / TURN CONFIGURATION
+    // =========================================================================
+    const rtcConfig = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
+        // ---------------------------------------------------------------------
+        // OPTIONAL TURN SERVER (Recommended for strict 4G/5G carrier NATs):
+        // Uncomment and fill in your Metered / Twilio / Coturn credentials:
+        // {
+        //   urls: ["turn:your.turn.server:3478", "turns:your.turn.server:5349"],
+        //   username: "YOUR_TURN_USERNAME",
+        //   credential: "YOUR_TURN_PASSWORD"
+        // }
+        // ---------------------------------------------------------------------
+      ],
+      iceCandidatePoolSize: 4
+    };
+
+    // =========================================================================
+    // 4. VOICE PRESETS DEFINITION
+    // =========================================================================
+    const VOICE_PRESETS = {
+      normal: {
+        id: "normal",
+        label: "Normal (0 st)",
+        semitones: 0,
+        hpFreq: 80,
+        lowMidFreq: 250,
+        lowMidGain: 0,
+        presenceFreq: 2800,
+        presenceGain: 0,
+        airFreq: 6500,
+        airGain: 0
+      },
+      femaleSoft: {
+        id: "femaleSoft",
+        label: "Female Soft (+4.5 st)",
+        semitones: 4.5,
+        hpFreq: 140,
+        lowMidFreq: 260,
+        lowMidGain: -3.5,
+        presenceFreq: 2800,
+        presenceGain: 4.5,
+        airFreq: 6500,
+        airGain: 2.0
+      },
+      femaleBright: {
+        id: "femaleBright",
+        label: "Female Bright (+6.5 st)",
+        semitones: 6.5,
+        hpFreq: 175,
+        lowMidFreq: 300,
+        lowMidGain: -4.5,
+        presenceFreq: 3400,
+        presenceGain: 6.0,
+        airFreq: 7000,
+        airGain: 4.0
+      },
+      deepVoice: {
+        id: "deepVoice",
+        label: "Deep Voice (-4.5 st)",
+        semitones: -4.5,
+        hpFreq: 55,
+        lowMidFreq: 190,
+        lowMidGain: 5.5,
+        presenceFreq: 3200,
+        presenceGain: -2.0,
+        airFreq: 6000,
+        airGain: -2.5
+      }
+    };
+
+    // =========================================================================
+    // 5. DOM REFERENCES
+    // =========================================================================
+    const el = {
+      statusChip: document.getElementById("statusChip"),
+      statusChipText: document.getElementById("statusChipText"),
+      configBanner: document.getElementById("configBanner"),
+      bannerConfigBtn: document.getElementById("bannerConfigBtn"),
+      shareAppBtn: document.getElementById("shareAppBtn"),
+      openConfigBtn: document.getElementById("openConfigBtn"),
+      configModal: document.getElementById("configModal"),
+      configTextarea: document.getElementById("configTextarea"),
+      saveConfigBtn: document.getElementById("saveConfigBtn"),
+      closeConfigBtn: document.getElementById("closeConfigBtn"),
+      resetConfigBtn: document.getElementById("resetConfigBtn"),
+
+      dialerView: document.getElementById("dialerView"),
+      logsView: document.getElementById("logsView"),
+      navDialer: document.getElementById("navDialer"),
+      navLogs: document.getElementById("navLogs"),
+      logsCountBadge: document.getElementById("logsCountBadge"),
+
+      modeCallerBtn: document.getElementById("modeCallerBtn"),
+      modeHostBtn: document.getElementById("modeHostBtn"),
+      callerPanel: document.getElementById("callerPanel"),
+      hostPanel: document.getElementById("hostPanel"),
+
+      roomCodeInput: document.getElementById("roomCodeInput"),
+      callerNumberInput: document.getElementById("callerNumberInput"),
+      dialpad: document.getElementById("dialpad"),
+      callNowBtn: document.getElementById("callNowBtn"),
+
+      hostCodeDisplay: document.getElementById("hostCodeDisplay"),
+      myReceiveNumberInput: document.getElementById("myReceiveNumberInput"),
+      copyCodeBtn: document.getElementById("copyCodeBtn"),
+      newCodeBtn: document.getElementById("newCodeBtn"),
+      toggleHostBtn: document.getElementById("toggleHostBtn"),
+      toggleHostBtnText: document.getElementById("toggleHostBtnText"),
+      hostListeningStatus: document.getElementById("hostListeningStatus"),
+
+      mainWaveCanvas: document.getElementById("mainWaveCanvas"),
+      inCallWaveCanvas: document.getElementById("inCallWaveCanvas"),
+      activePresetBadge: document.getElementById("activePresetBadge"),
+      mainPresetsGrid: document.getElementById("mainPresetsGrid"),
+      inCallPresetsRow: document.getElementById("inCallPresetsRow"),
+      semitoneSlider: document.getElementById("semitoneSlider"),
+      semitoneReadout: document.getElementById("semitoneReadout"),
+      inCallSemitoneSlider: document.getElementById("inCallSemitoneSlider"),
+      inCallSemitoneReadout: document.getElementById("inCallSemitoneReadout"),
+      micMonitorToggle: document.getElementById("micMonitorToggle"),
+
+      incomingOverlay: document.getElementById("incomingOverlay"),
+      incomingRoomDisplay: document.getElementById("incomingRoomDisplay"),
+      incomingCallerSub: document.getElementById("incomingCallerSub"),
+      incomingPresetPill: document.getElementById("incomingPresetPill"),
+      acceptCallBtn: document.getElementById("acceptCallBtn"),
+      declineCallBtn: document.getElementById("declineCallBtn"),
+
+      activeCallOverlay: document.getElementById("activeCallOverlay"),
+      activeCallStatusText: document.getElementById("activeCallStatusText"),
+      activeCallRoomText: document.getElementById("activeCallRoomText"),
+      activeCallTimer: document.getElementById("activeCallTimer"),
+      speakerVolSlider: document.getElementById("speakerVolSlider"),
+      speakerVolReadout: document.getElementById("speakerVolReadout"),
+      muteToggleBtn: document.getElementById("muteToggleBtn"),
+      muteLabel: document.getElementById("muteLabel"),
+      endCallBtn: document.getElementById("endCallBtn"),
+      inCallMonitorBtn: document.getElementById("inCallMonitorBtn"),
+
+      logsList: document.getElementById("logsList"),
+      logsSubtitle: document.getElementById("logsSubtitle"),
+      clearLogsBtn: document.getElementById("clearLogsBtn"),
+      confirmClearBar: document.getElementById("confirmClearBar"),
+      cancelClearBtn: document.getElementById("cancelClearBtn"),
+      confirmClearBtn: document.getElementById("confirmClearBtn"),
+
+      lastCallerBanner: document.getElementById("lastCallerBanner"),
+      lastCallerDisplay: document.getElementById("lastCallerDisplay"),
+      lastCallerMeta: document.getElementById("lastCallerMeta"),
+      blockLastCallerBtn: document.getElementById("blockLastCallerBtn"),
+      blockNumberInput: document.getElementById("blockNumberInput"),
+      addBlockBtn: document.getElementById("addBlockBtn"),
+      blockedChipsList: document.getElementById("blockedChipsList"),
+      blockedCountBadge: document.getElementById("blockedCountBadge"),
+
+      remoteAudio: document.getElementById("remoteAudio"),
+      toast: document.getElementById("toast")
+    };
+
+    // =========================================================================
+    // 6. APPLICATION STATE & INDIAN (+91) NUMBER HELPERS
+    // =========================================================================
+    const STORAGE_KEY_FB = "voxshift_firebase_config_v1";
+    const STORAGE_KEY_CALLER_NUM = "voxshift_indian_caller_num_v1";
+    const STORAGE_KEY_LOCAL_BLOCKS = "voxshift_local_blocked_numbers_v1";
+
+    function normalizeIndianOrRoom(raw) {
+      const cleaned = String(raw || "").trim().replace(/[\s\-().]/g, "");
+      if (!cleaned) return null;
+      if (/^[0-9]{6}$/.test(cleaned)) return cleaned;
+      if (/^\+91[6-9][0-9]{9}$/.test(cleaned)) return cleaned;
+      if (/^91[6-9][0-9]{9}$/.test(cleaned)) return "+" + cleaned;
+      if (/^0[6-9][0-9]{9}$/.test(cleaned)) return "+91" + cleaned.slice(1);
+      if (/^[6-9][0-9]{9}$/.test(cleaned)) return "+91" + cleaned;
+      return null;
+    }
+
+    function formatIndianOrRoom(value) {
+      const normalized = normalizeIndianOrRoom(value) || String(value || "");
+      if (/^\+91[6-9][0-9]{9}$/.test(normalized)) {
+        return `+91 ${normalized.slice(3, 8)} ${normalized.slice(8)}`;
+      }
+      if (/^[0-9]{6}$/.test(normalized)) {
+        return `${normalized.slice(0, 3)} ${normalized.slice(3)}`;
+      }
+      return normalized;
+    }
+
+    function blockKeyForNumber(normalized) {
+      return String(normalized || "").replace(/^\+/, "");
+    }
+
+    function loadLocalBlockedMap() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_LOCAL_BLOCKS);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveLocalBlockedMap(map) {
+      try {
+        localStorage.setItem(STORAGE_KEY_LOCAL_BLOCKS, JSON.stringify(map));
+      } catch (_) {}
+    }
+
+    const state = {
+      firebaseReady: false,
+      fbApp: null,
+      db: null,
+      logsUnsub: null,
+      blockedUnsub: null,
+
+      activeTab: "dialer", // "dialer" | "logs"
+      dialerMode: "caller", // "caller" | "host"
+
+      hostRoomCode: generateRoomCode(),
+      isHostWaiting: false,
+      hostRoomUnsub: null,
+      hostDisconnectRef: null,
+
+      // Call Session State
+      callActive: false,
+      callRole: null, // "caller" | "host"
+      callDirection: null, // "Outgoing" | "Incoming"
+      callRoomCode: null,
+      callRemoteCallerNumber: null,
+      callStatus: "idle", // "idle" | "ringing-out" | "ringing-in" | "connected"
+      callStartTimeMs: 0,
+      callTimerInterval: null,
+      ringTimeoutId: null,
+      callLogged: false,
+      isMuted: false,
+
+      // WebRTC
+      pc: null,
+      pendingOffer: null,
+      remoteIceQueue: [],
+      remoteDescSet: false,
+      signalingUnsubs: [],
+      activeDisconnectRef: null,
+
+      // Voice Pitch State (Female Soft +4.5 st active by default)
+      currentPresetId: "femaleSoft",
+      semitones: 4.5,
+      monitorEnabled: false,
+      logsData: [],
+
+      // Blocked Numbers (Firebase RTDB `blockedNumbers` + Firestore Native Sync + Local Cache)
+      rtdbBlockedMap: {},
+      nativeBlockedSet: new Set(),
+      localBlockedMap: loadLocalBlockedMap(),
+      lastCallerTarget: null
+    };
+
+    // =========================================================================
+    // 7. REAL-TIME WEB AUDIO PITCH & FORMANT ENGINE (Zero Dependencies)
+    // Dual crossfaded modulated DelayNode algorithm + BiquadFilterNode EQ
+    // =========================================================================
+    class VoicePitchEngine {
+      constructor() {
+        this.ctx = null;
+        this.rawStream = null;
+        this.sourceNode = null;
+        this.inputGain = null;
+        this.dryGain = null;
+        this.wetGain = null;
+        this.delayA = null;
+        this.delayB = null;
+        this.gainA = null;
+        this.gainB = null;
+        this.modGainA = null;
+        this.modGainB = null;
+        this.baseOffsetNode = null;
+        this.modSources = [];
+
+        this.hpFilter = null;
+        this.lowMidFilter = null;
+        this.presenceFilter = null;
+        this.airFilter = null;
+        this.compressor = null;
+        this.analyser = null;
+        this.monitorGain = null;
+        this.destNode = null;
+
+        this.windowSec = 0.060; // 60ms grain window (low latency + smooth vocal pitch)
+        this.baseDelaySec = 0.006;
+        this.isRunning = false;
+      }
+
+      async ensureStarted() {
+        if (this.isRunning && this.rawStream && this.rawStream.active) {
+          if (this.ctx && this.ctx.state === "suspended") {
+            await this.ctx.resume();
+          }
+          return this.destNode.stream;
+        }
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Microphone API unavailable in this browser context.");
+        }
+
+        this.rawStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx({ latencyHint: "interactive" });
+        if (this.ctx.state === "suspended") {
+          await this.ctx.resume();
+        }
+
+        const sr = this.ctx.sampleRate;
+        const bufLen = sr; // 1.0 second buffer => playbackRate equals modulation Hz directly
+
+        // Create synchronized 1-second buffers for phase-locked dual delay modulation
+        const rampBufferA = this.ctx.createBuffer(1, bufLen, sr);
+        const rampBufferB = this.ctx.createBuffer(1, bufLen, sr);
+        const fadeBufferA = this.ctx.createBuffer(1, bufLen, sr);
+        const fadeBufferB = this.ctx.createBuffer(1, bufLen, sr);
+
+        const rA = rampBufferA.getChannelData(0);
+        const rB = rampBufferB.getChannelData(0);
+        const fA = fadeBufferA.getChannelData(0);
+        const fB = fadeBufferB.getChannelData(0);
+
+        for (let i = 0; i < bufLen; i++) {
+          const phaseA = i / bufLen; // 0 -> 1
+          const phaseB = (phaseA + 0.5) % 1.0; // 180° out of phase
+
+          rA[i] = phaseA;
+          rB[i] = phaseB;
+
+          // Complementary Hann crossfade windows:
+          // sin^2(pi*phase) is 0 at exact wrap-around points (0 & 1), eliminating clicks
+          // and fA + fB === 1.0 continuously with zero amplitude tremolo!
+          const sA = Math.sin(Math.PI * phaseA);
+          const sB = Math.sin(Math.PI * phaseB);
+          fA[i] = sA * sA;
+          fB[i] = sB * sB;
+        }
+
+        // Source & Mute Gate
+        this.sourceNode = this.ctx.createMediaStreamSource(this.rawStream);
+        this.inputGain = this.ctx.createGain();
+        this.inputGain.gain.value = state.isMuted ? 0 : 1;
+
+        // Dry Bypass & Wet Pitch-Shifter Mix
+        this.dryGain = this.ctx.createGain();
+        this.wetGain = this.ctx.createGain();
+
+        // Dual Delay Pitch-Shifter Branches
+        this.delayA = this.ctx.createDelay(0.25);
+        this.delayB = this.ctx.createDelay(0.25);
+        this.delayA.delayTime.value = 0;
+        this.delayB.delayTime.value = 0;
+
+        this.gainA = this.ctx.createGain();
+        this.gainB = this.ctx.createGain();
+        this.gainA.gain.value = 0;
+        this.gainB.gain.value = 0;
+
+        this.modGainA = this.ctx.createGain();
+        this.modGainB = this.ctx.createGain();
+        this.baseOffsetNode = this.ctx.createConstantSource();
+        this.baseOffsetNode.offset.value = this.baseDelaySec;
+
+        const modA = this.ctx.createBufferSource();
+        const modB = this.ctx.createBufferSource();
+        const fadeA = this.ctx.createBufferSource();
+        const fadeB = this.ctx.createBufferSource();
+
+        modA.buffer = rampBufferA;
+        modB.buffer = rampBufferB;
+        fadeA.buffer = fadeBufferA;
+        fadeB.buffer = fadeBufferB;
+
+        [modA, modB, fadeA, fadeB].forEach((s) => { s.loop = true; });
+        this.modSources = [modA, modB, fadeA, fadeB];
+
+        // Connect modulation & crossfade envelopes
+        modA.connect(this.modGainA);
+        modB.connect(this.modGainB);
+        this.modGainA.connect(this.delayA.delayTime);
+        this.modGainB.connect(this.delayB.delayTime);
+        this.baseOffsetNode.connect(this.delayA.delayTime);
+        this.baseOffsetNode.connect(this.delayB.delayTime);
+
+        fadeA.connect(this.gainA.gain);
+        fadeB.connect(this.gainB.gain);
+
+        // Formant Shaping BiquadFilterNode Chain
+        this.hpFilter = this.ctx.createBiquadFilter();
+        this.hpFilter.type = "highpass";
+        this.hpFilter.Q.value = 0.707;
+
+        this.lowMidFilter = this.ctx.createBiquadFilter();
+        this.lowMidFilter.type = "peaking";
+        this.lowMidFilter.Q.value = 1.0;
+
+        this.presenceFilter = this.ctx.createBiquadFilter();
+        this.presenceFilter.type = "peaking";
+        this.presenceFilter.Q.value = 1.15;
+
+        this.airFilter = this.ctx.createBiquadFilter();
+        this.airFilter.type = "highshelf";
+
+        // Smooth broadcast vocal compressor
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.value = -20;
+        this.compressor.knee.value = 18;
+        this.compressor.ratio.value = 3.5;
+        this.compressor.attack.value = 0.005;
+        this.compressor.release.value = 0.14;
+
+        // Analyser & Output Nodes
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.78;
+
+        this.destNode = this.ctx.createMediaStreamDestination();
+        this.monitorGain = this.ctx.createGain();
+        this.monitorGain.gain.value = state.monitorEnabled ? 0.85 : 0;
+
+        // Wire Audio Graph
+        this.sourceNode.connect(this.inputGain);
+
+        // Dry path
+        this.inputGain.connect(this.dryGain);
+        this.dryGain.connect(this.hpFilter);
+
+        // Wet dual-delay path
+        this.inputGain.connect(this.delayA);
+        this.inputGain.connect(this.delayB);
+        this.delayA.connect(this.gainA);
+        this.delayB.connect(this.gainB);
+        this.gainA.connect(this.wetGain);
+        this.gainB.connect(this.wetGain);
+        this.wetGain.connect(this.hpFilter);
+
+        // EQ -> Compressor -> Analyser -> WebRTC Destination & Optional Local Monitor
+        this.hpFilter.connect(this.lowMidFilter);
+        this.lowMidFilter.connect(this.presenceFilter);
+        this.presenceFilter.connect(this.airFilter);
+        this.airFilter.connect(this.compressor);
+        this.compressor.connect(this.analyser);
+        this.analyser.connect(this.destNode);
+        this.analyser.connect(this.monitorGain);
+        this.monitorGain.connect(this.ctx.destination);
+
+        // Start all phase-locked modulators at exact same timestamp
+        const startAt = this.ctx.currentTime + 0.02;
+        this.baseOffsetNode.start(startAt);
+        this.modSources.forEach((s) => s.start(startAt));
+
+        this.isRunning = true;
+        this.applyPitchAndEQ(state.semitones, state.currentPresetId);
+
+        return this.destNode.stream;
+      }
+
+      applyPitchAndEQ(semitones, presetId) {
+        if (!this.isRunning || !this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const preset = VOICE_PRESETS[presetId];
+        const isBypass = Math.abs(semitones) < 0.05;
+
+        if (isBypass) {
+          this.dryGain.gain.setTargetAtTime(1.0, now, 0.02);
+          this.wetGain.gain.setTargetAtTime(0.0, now, 0.02);
+          this.modSources.forEach((s) => s.playbackRate.setTargetAtTime(0.01, now, 0.02));
+        } else {
+          const ratio = Math.pow(2, semitones / 12);
+          const delta = ratio - 1.0; // >0 for pitch up, <0 for pitch down
+          const modHz = Math.max(0.05, Math.abs(delta) / this.windowSec);
+
+          this.dryGain.gain.setTargetAtTime(0.0, now, 0.02);
+          this.wetGain.gain.setTargetAtTime(1.0, now, 0.02);
+
+          if (delta > 0) {
+            // Pitch UP: delay decreases linearly from (base + W) down to base
+            this.modGainA.gain.setTargetAtTime(-this.windowSec, now, 0.015);
+            this.modGainB.gain.setTargetAtTime(-this.windowSec, now, 0.015);
+            this.baseOffsetNode.offset.setTargetAtTime(this.baseDelaySec + this.windowSec, now, 0.015);
+          } else {
+            // Pitch DOWN: delay increases linearly from base up to (base + W)
+            this.modGainA.gain.setTargetAtTime(this.windowSec, now, 0.015);
+            this.modGainB.gain.setTargetAtTime(this.windowSec, now, 0.015);
+            this.baseOffsetNode.offset.setTargetAtTime(this.baseDelaySec, now, 0.015);
+          }
+
+          this.modSources.forEach((s) => s.playbackRate.setTargetAtTime(modHz, now, 0.015));
+        }
+
+        // Formant EQ profile (exact preset values or proportional curve for custom slider)
+        let hpFreq = 80, lmFreq = 250, lmGain = 0, prFreq = 2800, prGain = 0, airFreq = 6500, airGain = 0;
+
+        if (preset && Math.abs(preset.semitones - semitones) < 0.01) {
+          hpFreq = preset.hpFreq;
+          lmFreq = preset.lowMidFreq;
+          lmGain = preset.lowMidGain;
+          prFreq = preset.presenceFreq;
+          prGain = preset.presenceGain;
+          airFreq = preset.airFreq;
+          airGain = preset.airGain;
+        } else if (semitones > 0) {
+          const t = Math.min(1, semitones / 8);
+          hpFreq = 90 + t * 95;
+          lmFreq = 270;
+          lmGain = -t * 5.0;
+          prFreq = 2700 + t * 900;
+          prGain = t * 6.0;
+          airFreq = 6800;
+          airGain = t * 4.0;
+        } else if (semitones < 0) {
+          const t = Math.min(1, Math.abs(semitones) / 8);
+          hpFreq = 50;
+          lmFreq = 185;
+          lmGain = t * 6.5;
+          prFreq = 3200;
+          prGain = -t * 2.5;
+          airFreq = 6000;
+          airGain = -t * 3.0;
+        }
+
+        this.hpFilter.frequency.setTargetAtTime(hpFreq, now, 0.025);
+        this.lowMidFilter.frequency.setTargetAtTime(lmFreq, now, 0.025);
+        this.lowMidFilter.gain.setTargetAtTime(lmGain, now, 0.025);
+        this.presenceFilter.frequency.setTargetAtTime(prFreq, now, 0.025);
+        this.presenceFilter.gain.setTargetAtTime(prGain, now, 0.025);
+        this.airFilter.frequency.setTargetAtTime(airFreq, now, 0.025);
+        this.airFilter.gain.setTargetAtTime(airGain, now, 0.025);
+      }
+
+      setMuted(muted) {
+        if (!this.isRunning || !this.ctx || !this.inputGain) return;
+        this.inputGain.gain.setTargetAtTime(muted ? 0 : 1, this.ctx.currentTime, 0.012);
+      }
+
+      setMonitor(enabled) {
+        if (!this.isRunning || !this.ctx || !this.monitorGain) return;
+        this.monitorGain.gain.setTargetAtTime(enabled ? 0.85 : 0, this.ctx.currentTime, 0.02);
+      }
+
+      stopAll() {
+        try {
+          this.modSources.forEach((s) => { try { s.stop(); } catch (_) {} });
+          this.modSources = [];
+          if (this.baseOffsetNode) { try { this.baseOffsetNode.stop(); } catch (_) {} }
+          if (this.rawStream) {
+            this.rawStream.getTracks().forEach((t) => t.stop());
+            this.rawStream = null;
+          }
+          if (this.destNode && this.destNode.stream) {
+            this.destNode.stream.getTracks().forEach((t) => t.stop());
+          }
+          if (this.ctx) {
+            this.ctx.close().catch(() => {});
+            this.ctx = null;
+          }
+        } catch (err) {
+          console.warn("Audio engine stop warning:", err);
+        } finally {
+          this.analyser = null;
+          this.destNode = null;
+          this.isRunning = false;
+        }
+      }
+    }
+
+    const audioEngine = new VoicePitchEngine();
+
+    // =========================================================================
+    // 8. SYNTHESIZED WEB AUDIO RINGTONE (Zero External Audio Files)
+    // =========================================================================
+    class RingtoneSynth {
+      constructor() {
+        this.ctx = null;
+        this.intervalId = null;
+        this.active = false;
+      }
+
+      start() {
+        if (this.active) return;
+        this.active = true;
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+          const playBurst = () => {
+            if (!this.active || !this.ctx) return;
+            if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
+            const now = this.ctx.currentTime;
+            // Subtle pleasant dual-chime harmonic phone ring
+            const freqs = [587.33, 880.0]; // D5 + A5
+            freqs.forEach((f, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = "sine";
+              osc.frequency.setValueAtTime(f, now + idx * 0.14);
+              gain.gain.setValueAtTime(0.0001, now + idx * 0.14);
+              gain.gain.exponentialRampToValueAtTime(0.08, now + idx * 0.14 + 0.03);
+              gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.14 + 0.55);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start(now + idx * 0.14);
+              osc.stop(now + idx * 0.14 + 0.6);
+            });
+          };
+          playBurst();
+          this.intervalId = setInterval(playBurst, 2100);
+        } catch (e) {
+          console.warn("Ringtone synth blocked until gesture:", e);
+        }
+      }
+
+      stop() {
+        this.active = false;
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+          this.intervalId = null;
+        }
+        if (this.ctx) {
+          this.ctx.close().catch(() => {});
+          this.ctx = null;
+        }
+      }
+    }
+
+    const ringtone = new RingtoneSynth();
+
+    // =========================================================================
+    // 9. LIVE CANVAS AUDIO WAVEFORM VISUALIZER
+    // =========================================================================
+    let idlePhase = 0;
+
+    function drawWaveform(canvas) {
+      if (!canvas) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+
+      const targetW = Math.floor(rect.width * dpr);
+      const targetH = Math.floor(rect.height * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const grad = ctx.createLinearGradient(0, 0, w, 0);
+      grad.addColorStop(0, "#22D3EE");
+      grad.addColorStop(0.5, "#818CF8");
+      grad.addColorStop(1, "#A78BFA");
+
+      const barCount = 34;
+      const gap = w / barCount;
+      const barW = Math.max(2 * dpr, gap * 0.46);
+
+      if (audioEngine.isRunning && audioEngine.analyser && !state.isMuted) {
+        const freqData = new Uint8Array(audioEngine.analyser.frequencyBinCount);
+        audioEngine.analyser.getByteFrequencyData(freqData);
+
+        ctx.fillStyle = grad;
+        for (let i = 0; i < barCount; i++) {
+          const idx = Math.floor((i / barCount) * (freqData.length * 0.65));
+          const norm = freqData[idx] / 255;
+          const barH = Math.max(4 * dpr, norm * (h * 0.84));
+          const x = i * gap + (gap - barW) / 2;
+          const y = midY - barH / 2;
+          roundRect(ctx, x, y, barW, barH, barW / 2);
+          ctx.fill();
+        }
+      } else {
+        // Gentle idle studio pulse when mic is standby/muted
+        ctx.fillStyle = state.isMuted ? "rgba(244, 63, 94, 0.45)" : "rgba(34, 211, 238, 0.34)";
+        for (let i = 0; i < barCount; i++) {
+          const wave = Math.sin(idlePhase + i * 0.38) * Math.sin((i / barCount) * Math.PI);
+          const barH = (4 + Math.abs(wave) * 11) * dpr;
+          const x = i * gap + (gap - barW) / 2;
+          const y = midY - barH / 2;
+          roundRect(ctx, x, y, barW, barH, barW / 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function startWaveformLoop() {
+      function tick() {
+        idlePhase += 0.045;
+        if (state.callActive) {
+          drawWaveform(el.inCallWaveCanvas);
+        } else if (state.activeTab === "dialer") {
+          drawWaveform(el.mainWaveCanvas);
+        }
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // =========================================================================
+    // 10. FIREBASE INITIALIZATION & CONFIG VALIDATION
+    // =========================================================================
+    function isPlaceholderConfig(cfg) {
+      if (!cfg || typeof cfg !== "object") return true;
+      const required = ["apiKey", "databaseURL", "projectId"];
+      for (const k of required) {
+        const val = String(cfg[k] || "").trim();
+        if (!val || val.includes("YOUR_") || val.includes("PLACEHOLDER")) {
+          return true;
+        }
+      }
+      if (!String(cfg.databaseURL).startsWith("https://")) return true;
+      return false;
+    }
+
+    function getActiveFirebaseConfig() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_FB);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (!isPlaceholderConfig(parsed)) return parsed;
+        }
+      } catch (_) {}
+      return firebaseConfig;
+    }
+
+    // =========================================================================
+    // 10A. NATIVE ANDROID CLOUD FIRESTORE ADAPTER (Zero-Config Inside App)
+    // =========================================================================
+    let nativeReqCounter = 0;
+    const nativePending = new Map();
+    const nativeRoomHandlers = new Map();
+    const nativeCandHandlers = new Map();
+
+    function nativeInvoke(fn) {
+      return new Promise((resolve, reject) => {
+        const reqId = `r_${++nativeReqCounter}_${Date.now()}`;
+        nativePending.set(reqId, { resolve, reject });
+        try {
+          fn(reqId);
+        } catch (err) {
+          nativePending.delete(reqId);
+          reject(err);
+        }
+      });
+    }
+
+    window.__nativeResolve = (reqId, ok, data, errMsg) => {
+      const entry = nativePending.get(reqId);
+      if (!entry) return;
+      nativePending.delete(reqId);
+      if (ok) entry.resolve(data);
+      else entry.reject(new Error(errMsg || "Cloud operation failed"));
+    };
+
+    window.__nativeCallLogsUpdated = (items) => {
+      state.logsData = Array.isArray(items) ? items : [];
+      renderCallLogs(state.logsData);
+    };
+
+    window.__nativeRoomUpdate = (roomCode, data) => {
+      const handler = nativeRoomHandlers.get(roomCode);
+      if (handler) handler(data);
+    };
+
+    window.__nativeIceCandidate = (roomCode, role, candJson) => {
+      const handler = nativeCandHandlers.get(`${roomCode}:${role}`);
+      if (!handler) return;
+      try {
+        const parsed = typeof candJson === "string" ? JSON.parse(candJson) : candJson;
+        if (parsed) handler(parsed);
+      } catch (_) {}
+    };
+
+    function isNativeCloudAvailable() {
+      return Boolean(
+        window.AndroidBridge &&
+        typeof window.AndroidBridge.isNativeCloudReady === "function" &&
+        window.AndroidBridge.isNativeCloudReady()
+      );
+    }
+
+    async function initFirebase() {
+      // Automatically use the already-provisioned & authenticated Android Cloud Firestore
+      if (isNativeCloudAvailable()) {
+        state.nativeCloudMode = true;
+        state.firebaseReady = true;
+        state.db = null;
+        el.configBanner.classList.add("hidden");
+        if (el.openConfigBtn) el.openConfigBtn.style.display = "none";
+        setStatusChip("ready", "Cloud Ready");
+        try { window.AndroidBridge.nativeStartCallLogs(); } catch (_) {}
+        return true;
+      }
+
+      state.nativeCloudMode = false;
+      const cfg = getActiveFirebaseConfig();
+      if (isPlaceholderConfig(cfg)) {
+        state.firebaseReady = false;
+        state.db = null;
+        el.configBanner.classList.remove("hidden");
+        setStatusChip("warn", "Setup Needed");
+        renderCallLogs([]);
+        return false;
+      }
+
+      try {
+        if (state.logsUnsub) {
+          state.logsUnsub();
+          state.logsUnsub = null;
+        }
+        if (state.blockedUnsub) {
+          state.blockedUnsub();
+          state.blockedUnsub = null;
+        }
+        for (const existing of getApps()) {
+          await deleteApp(existing);
+        }
+        state.fbApp = initializeApp(cfg);
+        state.db = getDatabase(state.fbApp);
+        state.firebaseReady = true;
+        el.configBanner.classList.add("hidden");
+        setStatusChip("ready", "Ready");
+        subscribeCallLogs();
+        subscribeBlockedNumbers();
+        return true;
+      } catch (err) {
+        console.error("Firebase init failed:", err);
+        state.firebaseReady = false;
+        el.configBanner.classList.remove("hidden");
+        setStatusChip("warn", "Config Error");
+        showToast("Firebase config error: " + err.message);
+        return false;
+      }
+    }
+
+    // =========================================================================
+    // 10B. BLOCKED NUMBERS BLACKLIST (RTDB `blockedNumbers` + Firestore Sync)
+    // =========================================================================
+    function getMergedBlockedEntries() {
+      const merged = new Map();
+      Object.entries(state.localBlockedMap || {}).forEach(([key, entry]) => {
+        const num = normalizeIndianOrRoom(entry?.number || key);
+        if (num) {
+          merged.set(blockKeyForNumber(num), {
+            key: blockKeyForNumber(num),
+            number: num,
+            reason: entry?.reason || "Blocked"
+          });
+        }
+      });
+      state.nativeBlockedSet.forEach((raw) => {
+        const num = normalizeIndianOrRoom(raw);
+        if (num) {
+          const k = blockKeyForNumber(num);
+          merged.set(k, { key: k, number: num, reason: "Synced (+91 Blocklist)" });
+        }
+      });
+      Object.entries(state.rtdbBlockedMap || {}).forEach(([key, entry]) => {
+        const num = normalizeIndianOrRoom(entry?.number || key);
+        if (num) {
+          const k = blockKeyForNumber(num);
+          merged.set(k, {
+            key: k,
+            number: num,
+            reason: entry?.reason || "Blocked in RTDB"
+          });
+        }
+      });
+      return Array.from(merged.values()).sort((a, b) => a.number.localeCompare(b.number));
+    }
+
+    function isNumberBlocked(raw) {
+      const normalized = normalizeIndianOrRoom(raw);
+      if (!normalized) return false;
+      const key = blockKeyForNumber(normalized);
+      if (state.rtdbBlockedMap && state.rtdbBlockedMap[key]) return true;
+      if (state.localBlockedMap && state.localBlockedMap[key]) return true;
+      if (state.nativeBlockedSet.has(normalized) || state.nativeBlockedSet.has(key)) return true;
+      return false;
+    }
+
+    function subscribeBlockedNumbers() {
+      if (!state.db) return;
+      state.blockedUnsub = onValue(ref(state.db, "blockedNumbers"), (snapshot) => {
+        const data = snapshot.val() || {};
+        state.rtdbBlockedMap = data;
+        renderBlockedNumbers();
+        renderCallLogs(state.logsData);
+      }, (err) => {
+        console.warn("blockedNumbers listener error:", err);
+      });
+    }
+
+    async function addBlockedNumber(raw, reason = "Blocked from Call Logs") {
+      const normalized = normalizeIndianOrRoom(raw);
+      if (!normalized) {
+        showToast("Enter a valid Indian +91 mobile (10 digits starting 6-9) or 6-digit room.");
+        return false;
+      }
+      const key = blockKeyForNumber(normalized);
+      state.localBlockedMap[key] = { number: normalized, reason, blockedAt: Date.now() };
+      saveLocalBlockedMap(state.localBlockedMap);
+
+      if (state.firebaseReady && state.db) {
+        try {
+          await set(ref(state.db, `blockedNumbers/${key}`), {
+            number: normalized,
+            reason,
+            blockedAt: serverTimestamp()
+          });
+        } catch (err) {
+          console.warn("RTDB blockedNumbers write failed:", err);
+        }
+      }
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.blockNumberInNative === "function") {
+        try { window.AndroidBridge.blockNumberInNative(normalized, reason); } catch (_) {}
+      }
+
+      renderBlockedNumbers();
+      renderCallLogs(state.logsData);
+      showToast(`Blocked ${formatIndianOrRoom(normalized)}`);
+      return true;
+    }
+
+    async function removeBlockedNumber(raw) {
+      const normalized = normalizeIndianOrRoom(raw) || String(raw || "");
+      const key = blockKeyForNumber(normalized);
+      delete state.localBlockedMap[key];
+      saveLocalBlockedMap(state.localBlockedMap);
+      state.nativeBlockedSet.delete(normalized);
+      state.nativeBlockedSet.delete(key);
+
+      if (state.firebaseReady && state.db) {
+        try {
+          await remove(ref(state.db, `blockedNumbers/${key}`));
+        } catch (err) {
+          console.warn("RTDB blockedNumbers delete failed:", err);
+        }
+      }
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.unblockNumberInNative === "function") {
+        try { window.AndroidBridge.unblockNumberInNative(key); } catch (_) {}
+      }
+
+      renderBlockedNumbers();
+      renderCallLogs(state.logsData);
+      showToast(`Unblocked ${formatIndianOrRoom(normalized)}`);
+    }
+
+    function renderBlockedNumbers() {
+      const entries = getMergedBlockedEntries();
+      el.blockedCountBadge.textContent = `${entries.length} blocked`;
+      if (entries.length === 0) {
+        el.blockedChipsList.innerHTML = `<span class="blocklist-empty-hint">No blocked numbers yet. Incoming &amp; outgoing calls from blacklisted numbers are automatically stopped.</span>`;
+        return;
+      }
+      el.blockedChipsList.innerHTML = "";
+      entries.forEach((entry) => {
+        const chip = document.createElement("span");
+        chip.className = "blocklist-chip";
+        chip.innerHTML = `
+          <span>${escapeHtml(formatIndianOrRoom(entry.number))}</span>
+          <button type="button" aria-label="Unblock ${escapeHtml(entry.number)}" title="Unblock">&times;</button>
+        `;
+        chip.querySelector("button").addEventListener("click", () => {
+          removeBlockedNumber(entry.number);
+        });
+        el.blockedChipsList.appendChild(chip);
+      });
+    }
+
+    // Native Android Firestore -> WebView blocklist sync hook
+    window.syncNativeBlockedNumbers = (numbers) => {
+      try {
+        const list = Array.isArray(numbers) ? numbers : [];
+        const nextSet = new Set();
+        list.forEach((n) => {
+          const norm = normalizeIndianOrRoom(n);
+          if (norm) nextSet.add(norm);
+        });
+        state.nativeBlockedSet = nextSet;
+        // Mirror synced Firestore numbers into RTDB blockedNumbers if RTDB is connected
+        if (state.firebaseReady && state.db) {
+          nextSet.forEach((norm) => {
+            const k = blockKeyForNumber(norm);
+            if (!state.rtdbBlockedMap[k]) {
+              set(ref(state.db, `blockedNumbers/${k}`), {
+                number: norm,
+                reason: "Synced from Android Blocklist",
+                blockedAt: serverTimestamp()
+              }).catch(() => {});
+            }
+          });
+        }
+        renderBlockedNumbers();
+        renderCallLogs(state.logsData);
+      } catch (err) {
+        console.warn("syncNativeBlockedNumbers error:", err);
+      }
+    };
+
+    // =========================================================================
+    // 11. HOST MODE (RECEIVE CALL) SIGNALING
+    // =========================================================================
+    function generateRoomCode() {
+      return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    function formatRoomCode(code) {
+      return formatIndianOrRoom(code);
+    }
+
+    function renderHostCode() {
+      const val = el.myReceiveNumberInput ? el.myReceiveNumberInput.value.trim() : "";
+      const norm = normalizeIndianOrRoom(val);
+      if (norm && norm.startsWith("+91")) {
+        state.hostRoomCode = blockKeyForNumber(norm);
+        el.hostCodeDisplay.textContent = formatIndianOrRoom(norm);
+      } else {
+        el.hostCodeDisplay.textContent = "+91 —";
+      }
+    }
+
+    async function startHostListening() {
+      if (!state.firebaseReady || (!state.nativeCloudMode && !state.db)) {
+        showToast("Please configure Firebase Realtime Database first.");
+        openConfigModal();
+        return;
+      }
+      if (state.isHostWaiting) return;
+
+      const rawMyNum = (el.myReceiveNumberInput?.value || "").trim();
+      const normMyNum = normalizeIndianOrRoom(rawMyNum);
+      if (!normMyNum || !normMyNum.startsWith("+91")) {
+        showToast("Enter your 10-digit Indian +91 mobile number (starts with 6-9) first.");
+        return;
+      }
+      const roomCode = blockKeyForNumber(normMyNum);
+      state.hostRoomCode = roomCode;
+      el.hostCodeDisplay.textContent = formatIndianOrRoom(normMyNum);
+      try {
+        localStorage.setItem(STORAGE_KEY_CALLER_NUM, normMyNum);
+        if (el.callerNumberInput) el.callerNumberInput.value = normMyNum.slice(3);
+      } catch (_) {}
+
+      const onHostRoomData = (data) => {
+        if (!data) return;
+
+        if (data.status === "ringing" && data.offer && !state.callActive) {
+          const incomingCaller = normalizeIndianOrRoom(data.callerNumber || "");
+          const blockedHit =
+            (incomingCaller && isNumberBlocked(incomingCaller)) ||
+            isNumberBlocked(roomCode);
+
+          if (blockedHit) {
+            const blockedLabel = formatIndianOrRoom(incomingCaller || roomCode);
+            if (state.nativeCloudMode) {
+              window.AndroidBridge.nativeUpdateRoomStatus(roomCode, "declined", true);
+            } else {
+              update(ref(state.db, `calls/${roomCode}`), { status: "declined", blocked: true }).catch(() => {});
+            }
+            pushCallLog({
+              roomCode,
+              callerNumber: incomingCaller || null,
+              direction: "Incoming",
+              status: "Blocked",
+              durationSec: 0
+            });
+            showToast(`Blocked call from ${blockedLabel}`);
+            setTimeout(() => {
+              if (state.isHostWaiting) reopenHostRoom(roomCode);
+            }, 800);
+            return;
+          }
+
+          handleIncomingOffer(roomCode, data.offer, incomingCaller);
+        } else if (
+          state.callStatus === "ringing-in" &&
+          (data.status === "ended" || data.status === "declined")
+        ) {
+          ringtone.stop();
+          el.incomingOverlay.classList.remove("open");
+          if (!state.callLogged) {
+            state.callLogged = true;
+            pushCallLog({
+              roomCode,
+              callerNumber: state.callRemoteCallerNumber || null,
+              direction: "Incoming",
+              status: "Missed",
+              durationSec: 0
+            });
+          }
+          state.callStatus = "idle";
+          state.pendingOffer = null;
+          state.callRemoteCallerNumber = null;
+          showToast("Caller hung up (Missed call)");
+          reopenHostRoom(roomCode);
+        }
+      };
+
+      try {
+        if (state.nativeCloudMode) {
+          await nativeInvoke((reqId) => window.AndroidBridge.nativeOpenHostRoom(roomCode, reqId));
+          state.isHostWaiting = true;
+          updateHostUI();
+          setStatusChip("waiting", "Waiting");
+          nativeRoomHandlers.set(roomCode, onHostRoomData);
+          window.AndroidBridge.nativeSubscribeRoom(roomCode);
+          state.hostRoomUnsub = () => {
+            nativeRoomHandlers.delete(roomCode);
+            try { window.AndroidBridge.nativeUnsubscribeRoom(roomCode); } catch (_) {}
+          };
+        } else {
+          const roomRef = ref(state.db, `calls/${roomCode}`);
+          await set(roomRef, {
+            status: "waiting",
+            createdAt: serverTimestamp()
+          });
+
+          state.hostDisconnectRef = onDisconnect(roomRef);
+          await state.hostDisconnectRef.update({ status: "ended" });
+
+          state.isHostWaiting = true;
+          updateHostUI();
+          setStatusChip("waiting", "Waiting");
+
+          state.hostRoomUnsub = onValue(roomRef, (snapshot) => onHostRoomData(snapshot.val()));
+        }
+
+        showToast(`Room ${roomCode} is open for calls`);
+      } catch (err) {
+        console.error("Failed to open host room:", err);
+        showToast("Could not open room: " + err.message);
+      }
+    }
+
+    async function stopHostListening(cleanupRemote = true) {
+      if (state.hostRoomUnsub) {
+        state.hostRoomUnsub();
+        state.hostRoomUnsub = null;
+      }
+      if (state.hostDisconnectRef) {
+        try { await state.hostDisconnectRef.cancel(); } catch (_) {}
+        state.hostDisconnectRef = null;
+      }
+      if (cleanupRemote && state.firebaseReady && state.isHostWaiting) {
+        if (state.nativeCloudMode) {
+          try { window.AndroidBridge.nativeDeleteRoom(state.hostRoomCode); } catch (_) {}
+        } else if (state.db) {
+          try { await remove(ref(state.db, `calls/${state.hostRoomCode}`)); } catch (_) {}
+        }
+      }
+      state.isHostWaiting = false;
+      updateHostUI();
+      if (!state.callActive && state.firebaseReady) {
+        setStatusChip("ready", state.nativeCloudMode ? "Cloud Ready" : "Ready");
+      }
+    }
+
+    async function reopenHostRoom(roomCode) {
+      if (!state.isHostWaiting) return;
+      try {
+        if (state.nativeCloudMode) {
+          await nativeInvoke((reqId) => window.AndroidBridge.nativeOpenHostRoom(roomCode, reqId));
+        } else if (state.db) {
+          await set(ref(state.db, `calls/${roomCode}`), {
+            status: "waiting",
+            createdAt: serverTimestamp()
+          });
+        }
+      } catch (_) {}
+    }
+
+    function updateHostUI() {
+      if (state.isHostWaiting) {
+        el.toggleHostBtnText.textContent = "Go Offline";
+        el.toggleHostBtn.classList.add("btn-danger");
+        el.hostListeningStatus.innerHTML = `<span class="status-dot" style="background:var(--accent-cyan);box-shadow:0 0 8px var(--accent-cyan);animation:pulse-dot 1.4s infinite;"></span> Online — Friends can dial ${escapeHtml(formatIndianOrRoom(state.hostRoomCode))} directly`;
+        if (el.myReceiveNumberInput) el.myReceiveNumberInput.disabled = true;
+      } else {
+        el.toggleHostBtnText.textContent = "Go Online on My +91 Number";
+        el.toggleHostBtn.classList.remove("btn-danger");
+        el.hostListeningStatus.textContent = 'Tap "Go Online" so friends can call your +91 number directly.';
+        if (el.myReceiveNumberInput) el.myReceiveNumberInput.disabled = false;
+      }
+    }
+
+    function handleIncomingOffer(roomCode, offer, callerNumber = null) {
+      state.callRole = "host";
+      state.callDirection = "Incoming";
+      state.callRoomCode = roomCode;
+      state.callRemoteCallerNumber = callerNumber || null;
+      state.callStatus = "ringing-in";
+      state.pendingOffer = offer;
+      state.callLogged = false;
+
+      el.incomingRoomDisplay.textContent = formatRoomCode(roomCode);
+      el.incomingCallerSub.textContent = callerNumber ? `Caller: ${formatIndianOrRoom(callerNumber)}` : "";
+      el.incomingPresetPill.textContent = `Voice: ${getCurrentVoiceLabel()}`;
+      el.incomingOverlay.classList.add("open");
+      ringtone.start();
+    }
+
+    async function acceptIncomingCall() {
+      ringtone.stop();
+      el.incomingOverlay.classList.remove("open");
+
+      const roomCode = state.callRoomCode;
+      const offer = state.pendingOffer;
+      if (!roomCode || !offer || (!state.nativeCloudMode && !state.db)) return;
+
+      // Detach host waiting listener while active call listener takes over
+      if (state.hostRoomUnsub) {
+        state.hostRoomUnsub();
+        state.hostRoomUnsub = null;
+      }
+      state.isHostWaiting = false;
+      updateHostUI();
+
+      try {
+        const processedStream = await audioEngine.ensureStarted();
+        openActiveCallUI(roomCode, "Connecting...");
+        state.callActive = true;
+        state.callStatus = "connected";
+        notifyAndroidCallActive(true);
+
+        const pc = createPeerConnection(roomCode, "calleeCandidates");
+        processedStream.getTracks().forEach((track) => pc.addTrack(track, processedStream));
+
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        state.remoteDescSet = true;
+        await flushRemoteIceQueue();
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        if (state.nativeCloudMode) {
+          await nativeInvoke((reqId) => window.AndroidBridge.nativeSendAnswer(roomCode, answer.sdp, reqId));
+
+          nativeCandHandlers.set(`${roomCode}:caller`, (cand) => addRemoteIceCandidate(cand));
+          window.AndroidBridge.nativeSubscribeCandidates(roomCode, "caller");
+          state.signalingUnsubs.push(() => {
+            nativeCandHandlers.delete(`${roomCode}:caller`);
+            try { window.AndroidBridge.nativeUnsubscribeCandidates(roomCode); } catch (_) {}
+          });
+
+          nativeRoomHandlers.set(roomCode, (data) => {
+            if (data && data.status === "ended" && state.callActive) {
+              showToast("Remote user ended the call");
+              endCurrentCall({ initiatedByLocal: false, logStatus: "Completed" });
+            }
+          });
+          window.AndroidBridge.nativeSubscribeRoom(roomCode);
+          state.signalingUnsubs.push(() => {
+            nativeRoomHandlers.delete(roomCode);
+            try { window.AndroidBridge.nativeUnsubscribeRoom(roomCode); } catch (_) {}
+          });
+        } else {
+          const roomRef = ref(state.db, `calls/${roomCode}`);
+          state.activeDisconnectRef = onDisconnect(roomRef);
+          await state.activeDisconnectRef.update({ status: "ended" });
+
+          await update(roomRef, {
+            answer: { type: answer.type, sdp: answer.sdp },
+            status: "connected",
+            connectedAt: serverTimestamp()
+          });
+
+          const callerCandUnsub = onChildAdded(ref(state.db, `calls/${roomCode}/callerCandidates`), (snap) => {
+            const cand = snap.val();
+            if (cand) addRemoteIceCandidate(cand);
+          });
+          state.signalingUnsubs.push(callerCandUnsub);
+
+          const statusUnsub = onValue(ref(state.db, `calls/${roomCode}/status`), (snap) => {
+            const st = snap.val();
+            if (st === "ended" && state.callActive) {
+              showToast("Remote user ended the call");
+              endCurrentCall({ initiatedByLocal: false, logStatus: "Completed" });
+            }
+          });
+          state.signalingUnsubs.push(statusUnsub);
+        }
+
+        startCallTimer();
+        setStatusChip("live", "Live Call");
+        el.activeCallStatusText.textContent = "Connected · Live Voice";
+      } catch (err) {
+        console.error("Error accepting call:", err);
+        showToast("Call failed: " + err.message);
+        await endCurrentCall({ initiatedByLocal: true, logStatus: "Missed" });
+      }
+    }
+
+    async function declineIncomingCall() {
+      ringtone.stop();
+      el.incomingOverlay.classList.remove("open");
+      const roomCode = state.callRoomCode;
+
+      if (roomCode && (state.nativeCloudMode || state.db)) {
+        try {
+          if (state.nativeCloudMode) {
+            window.AndroidBridge.nativeUpdateRoomStatus(roomCode, "declined", false);
+          } else {
+            await update(ref(state.db, `calls/${roomCode}`), { status: "declined" });
+          }
+          if (!state.callLogged) {
+            state.callLogged = true;
+            await pushCallLog({
+              roomCode,
+              callerNumber: state.callRemoteCallerNumber || null,
+              direction: "Incoming",
+              status: "Declined",
+              durationSec: 0
+            });
+          }
+          setTimeout(() => {
+            if (state.isHostWaiting) {
+              reopenHostRoom(roomCode);
+            } else if (state.nativeCloudMode) {
+              try { window.AndroidBridge.nativeDeleteRoom(roomCode); } catch (_) {}
+            } else if (state.db) {
+              remove(ref(state.db, `calls/${roomCode}`)).catch(() => {});
+            }
+          }, 800);
+        } catch (err) {
+          console.warn("Decline update error:", err);
+        }
+      }
+
+      state.callStatus = "idle";
+      state.pendingOffer = null;
+      state.callRemoteCallerNumber = null;
+      showToast("Call declined");
+    }
+
+    // =========================================================================
+    // 12. CALLER MODE (PLACE CALL) SIGNALING
+    // =========================================================================
+    async function placeOutgoingCall() {
+      if (!state.firebaseReady || (!state.nativeCloudMode && !state.db)) {
+        showToast("Please configure Firebase Realtime Database first.");
+        openConfigModal();
+        return;
+      }
+
+      const dialedDigits = el.roomCodeInput.value.replace(/\D/g, "");
+      const normalizedTarget = normalizeIndianOrRoom(dialedDigits);
+      if (!normalizedTarget) {
+        showToast("Enter a valid 10-digit Indian mobile number (starts with 6-9)");
+        return;
+      }
+      const roomCode = blockKeyForNumber(normalizedTarget);
+
+      // Client-side blocklist check before dialing
+      if (isNumberBlocked(normalizedTarget)) {
+        showToast(`${formatIndianOrRoom(normalizedTarget)} is blocked. Unblock it in Call Logs to call.`);
+        return;
+      }
+
+      const rawCallerNum = (el.callerNumberInput?.value || "").trim();
+      let callerNumber = null;
+      if (rawCallerNum) {
+        callerNumber = normalizeIndianOrRoom(rawCallerNum);
+        if (!callerNumber || !callerNumber.startsWith("+91")) {
+          showToast("Enter a valid 10-digit Indian +91 mobile number (starts with 6-9) or leave blank.");
+          return;
+        }
+        try { localStorage.setItem(STORAGE_KEY_CALLER_NUM, callerNumber); } catch (_) {}
+      }
+
+      if (state.isHostWaiting) {
+        await stopHostListening(true);
+      }
+
+      const handleCallerRoomData = async (data) => {
+        if (!data || !state.callActive) return;
+
+        if (data.status === "declined") {
+          if (data.blocked) {
+            showToast("Call blocked by recipient's blacklist");
+            await endCurrentCall({ initiatedByLocal: false, logStatus: "Blocked" });
+          } else {
+            showToast("Call was declined");
+            await endCurrentCall({ initiatedByLocal: false, logStatus: "Declined" });
+          }
+          return;
+        }
+
+        if (data.status === "ended") {
+          showToast("Call ended by remote user");
+          const logSt = state.callStatus === "connected" ? "Completed" : "Missed";
+          await endCurrentCall({ initiatedByLocal: false, logStatus: logSt });
+          return;
+        }
+
+        if (data.answer && !state.remoteDescSet && state.pc) {
+          clearTimeout(state.ringTimeoutId);
+          state.ringTimeoutId = null;
+          try {
+            await state.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            state.remoteDescSet = true;
+            await flushRemoteIceQueue();
+            state.callStatus = "connected";
+            el.activeCallStatusText.textContent = "Connected · Live Voice";
+            setStatusChip("live", "Live Call");
+            startCallTimer();
+          } catch (e) {
+            console.error("Failed setting remote answer:", e);
+          }
+        }
+      };
+
+      try {
+        let roomData = null;
+        if (state.nativeCloudMode) {
+          roomData = await nativeInvoke((reqId) => window.AndroidBridge.nativeGetRoom(roomCode, reqId));
+        } else {
+          const snap = await get(ref(state.db, `calls/${roomCode}`));
+          roomData = snap.val();
+        }
+
+        if (!roomData || roomData.status !== "waiting") {
+          showToast("Room not available or not waiting for calls.");
+          return;
+        }
+
+        const processedStream = await audioEngine.ensureStarted();
+
+        state.callActive = true;
+        state.callRole = "caller";
+        state.callDirection = "Outgoing";
+        state.callRoomCode = roomCode;
+        state.callRemoteCallerNumber = callerNumber;
+        state.callStatus = "ringing-out";
+        state.callLogged = false;
+        state.callStartTimeMs = 0;
+
+        openActiveCallUI(roomCode, "Ringing...");
+        setStatusChip("waiting", "Ringing");
+        notifyAndroidCallActive(true);
+
+        const pc = createPeerConnection(roomCode, "callerCandidates");
+        processedStream.getTracks().forEach((track) => pc.addTrack(track, processedStream));
+
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+        await pc.setLocalDescription(offer);
+
+        if (state.nativeCloudMode) {
+          await nativeInvoke((reqId) =>
+            window.AndroidBridge.nativeSendOffer(roomCode, offer.sdp, callerNumber || "", reqId)
+          );
+
+          nativeRoomHandlers.set(roomCode, handleCallerRoomData);
+          window.AndroidBridge.nativeSubscribeRoom(roomCode);
+          state.signalingUnsubs.push(() => {
+            nativeRoomHandlers.delete(roomCode);
+            try { window.AndroidBridge.nativeUnsubscribeRoom(roomCode); } catch (_) {}
+          });
+
+          nativeCandHandlers.set(`${roomCode}:callee`, (cand) => addRemoteIceCandidate(cand));
+          window.AndroidBridge.nativeSubscribeCandidates(roomCode, "callee");
+          state.signalingUnsubs.push(() => {
+            nativeCandHandlers.delete(`${roomCode}:callee`);
+            try { window.AndroidBridge.nativeUnsubscribeCandidates(roomCode); } catch (_) {}
+          });
+        } else {
+          const roomRef = ref(state.db, `calls/${roomCode}`);
+          state.activeDisconnectRef = onDisconnect(roomRef);
+          await state.activeDisconnectRef.update({ status: "ended" });
+
+          const offerPayload = {
+            offer: { type: offer.type, sdp: offer.sdp },
+            status: "ringing",
+            callerStartedAt: serverTimestamp()
+          };
+          if (callerNumber) {
+            offerPayload.callerNumber = callerNumber;
+          }
+          await update(roomRef, offerPayload);
+
+          const roomUnsub = onValue(roomRef, (roomSnap) => handleCallerRoomData(roomSnap.val()));
+          state.signalingUnsubs.push(roomUnsub);
+
+          const calleeCandUnsub = onChildAdded(ref(state.db, `calls/${roomCode}/calleeCandidates`), (candSnap) => {
+            const cand = candSnap.val();
+            if (cand) addRemoteIceCandidate(cand);
+          });
+          state.signalingUnsubs.push(calleeCandUnsub);
+        }
+
+        // Timeout if unanswered after 35 seconds
+        state.ringTimeoutId = setTimeout(() => {
+          if (state.callActive && state.callStatus === "ringing-out") {
+            showToast("No answer — call timed out");
+            endCurrentCall({ initiatedByLocal: true, logStatus: "Missed" });
+          }
+        }, 35000);
+
+      } catch (err) {
+        console.error("Outgoing call error:", err);
+        showToast("Could not place call: " + err.message);
+        await endCurrentCall({ initiatedByLocal: true, logStatus: "Missed" });
+      }
+    }
+
+    // =========================================================================
+    // 13. WEBRTC PEER CONNECTION & HANGUP CLEANUP
+    // =========================================================================
+    function createPeerConnection(roomCode, localCandidatesPath) {
+      const pc = new RTCPeerConnection(rtcConfig);
+      state.pc = pc;
+      state.remoteIceQueue = [];
+      state.remoteDescSet = false;
+
+      pc.onicecandidate = (event) => {
+        if (!event.candidate || !state.callActive) return;
+        const candObj = event.candidate.toJSON();
+        if (state.nativeCloudMode) {
+          const role = localCandidatesPath === "callerCandidates" ? "caller" : "callee";
+          try {
+            window.AndroidBridge.nativeAddIceCandidate(roomCode, role, JSON.stringify(candObj));
+          } catch (_) {}
+        } else if (state.db) {
+          push(ref(state.db, `calls/${roomCode}/${localCandidatesPath}`), candObj).catch(() => {});
+        }
+      };
+
+      pc.ontrack = (event) => {
+        const [remoteStream] = event.streams;
+        if (remoteStream) {
+          el.remoteAudio.srcObject = remoteStream;
+          el.remoteAudio.volume = Number(el.speakerVolSlider.value) / 100;
+          el.remoteAudio.play().catch((e) => console.warn("Remote audio autoplay warning:", e));
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (!state.callActive) return;
+        const cs = pc.connectionState;
+        if (cs === "connected") {
+          el.activeCallStatusText.textContent = "Connected · Live Voice";
+          setStatusChip("live", "Live Call");
+        } else if (cs === "disconnected" || cs === "failed") {
+          showToast("Connection lost");
+          const logSt = state.callStartTimeMs > 0 ? "Completed" : "Missed";
+          endCurrentCall({ initiatedByLocal: true, logStatus: logSt });
+        }
+      };
+
+      return pc;
+    }
+
+    async function addRemoteIceCandidate(candidateObj) {
+      if (!state.pc) return;
+      if (!state.remoteDescSet) {
+        state.remoteIceQueue.push(candidateObj);
+        return;
+      }
+      try {
+        await state.pc.addIceCandidate(new RTCIceCandidate(candidateObj));
+      } catch (err) {
+        console.warn("ICE candidate add error:", err);
+      }
+    }
+
+    async function flushRemoteIceQueue() {
+      if (!state.pc) return;
+      while (state.remoteIceQueue.length > 0) {
+        const c = state.remoteIceQueue.shift();
+        try {
+          await state.pc.addIceCandidate(new RTCIceCandidate(c));
+        } catch (_) {}
+      }
+    }
+
+    async function endCurrentCall({ initiatedByLocal = true, logStatus = null } = {}) {
+      const roomCode = state.callRoomCode;
+      const direction = state.callDirection || "Outgoing";
+      const wasConnected = state.callStartTimeMs > 0;
+      const durationSec = wasConnected ? Math.max(1, Math.floor((Date.now() - state.callStartTimeMs) / 1000)) : 0;
+      const finalStatus = logStatus || (wasConnected ? "Completed" : "Missed");
+
+      // Prevent re-entry
+      if (!state.callActive && !state.pc) return;
+      state.callActive = false;
+      state.callStatus = "idle";
+
+      clearTimeout(state.ringTimeoutId);
+      state.ringTimeoutId = null;
+      stopCallTimer();
+      ringtone.stop();
+
+      // Detach signaling listeners
+      state.signalingUnsubs.forEach((unsub) => { try { unsub(); } catch (_) {} });
+      state.signalingUnsubs = [];
+
+      // Cancel onDisconnect handler
+      if (state.activeDisconnectRef) {
+        try { await state.activeDisconnectRef.cancel(); } catch (_) {}
+        state.activeDisconnectRef = null;
+      }
+
+      // Close RTCPeerConnection
+      if (state.pc) {
+        try {
+          state.pc.onicecandidate = null;
+          state.pc.ontrack = null;
+          state.pc.onconnectionstatechange = null;
+          state.pc.close();
+        } catch (_) {}
+        state.pc = null;
+      }
+
+      // Stop remote audio & all local media tracks
+      el.remoteAudio.srcObject = null;
+      audioEngine.stopAll();
+      state.monitorEnabled = false;
+      state.isMuted = false;
+      syncMonitorUI();
+      syncMuteUI();
+
+      // Update UI overlays
+      el.activeCallOverlay.classList.remove("open");
+      el.incomingOverlay.classList.remove("open");
+      notifyAndroidCallActive(false);
+
+      if (state.firebaseReady) {
+        setStatusChip("ready", state.nativeCloudMode ? "Cloud Ready" : "Ready");
+      }
+
+      // Log call to Cloud Firestore or Firebase RTDB callLogs (once per call)
+      if (roomCode && !state.callLogged && (state.nativeCloudMode || state.db)) {
+        state.callLogged = true;
+        await pushCallLog({
+          roomCode,
+          callerNumber: state.callRemoteCallerNumber || null,
+          direction,
+          status: finalStatus,
+          durationSec
+        });
+      }
+
+      // Update status to "ended" and clean up temporary signaling room
+      if (roomCode && state.nativeCloudMode) {
+        try {
+          if (initiatedByLocal) {
+            window.AndroidBridge.nativeUpdateRoomStatus(roomCode, "ended", false);
+            setTimeout(() => {
+              try { window.AndroidBridge.nativeDeleteRoom(roomCode); } catch (_) {}
+            }, 700);
+          } else {
+            window.AndroidBridge.nativeDeleteRoom(roomCode);
+          }
+        } catch (_) {}
+      } else if (roomCode && state.db) {
+        const roomRef = ref(state.db, `calls/${roomCode}`);
+        try {
+          if (initiatedByLocal) {
+            await update(roomRef, { status: "ended" });
+            setTimeout(() => {
+              remove(roomRef).catch(() => {});
+            }, 700);
+          } else {
+            await remove(roomRef).catch(() => {});
+          }
+        } catch (_) {}
+      }
+
+      state.callRoomCode = null;
+      state.callRemoteCallerNumber = null;
+      state.callRole = null;
+      state.callStartTimeMs = 0;
+      state.pendingOffer = null;
+    }
+
+    function openActiveCallUI(roomCode, statusText) {
+      el.activeCallRoomText.textContent = formatRoomCode(roomCode);
+      el.activeCallStatusText.textContent = statusText;
+      el.activeCallTimer.textContent = "00:00";
+      el.activeCallOverlay.classList.add("open");
+    }
+
+    function startCallTimer() {
+      stopCallTimer();
+      state.callStartTimeMs = Date.now();
+      el.activeCallTimer.textContent = "00:00";
+      state.callTimerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - state.callStartTimeMs) / 1000);
+        el.activeCallTimer.textContent = formatDuration(sec);
+      }, 1000);
+    }
+
+    function stopCallTimer() {
+      if (state.callTimerInterval) {
+        clearInterval(state.callTimerInterval);
+        state.callTimerInterval = null;
+      }
+    }
+
+    // =========================================================================
+    // 14. PERSISTENT CALL LOGS (Native Cloud Firestore or Firebase RTDB)
+    // =========================================================================
+    async function pushCallLog({ roomCode, callerNumber = null, direction, status, durationSec }) {
+      if (!state.firebaseReady) return;
+      const payload = {
+        roomCode: String(roomCode),
+        direction,
+        status,
+        voicePreset: getCurrentVoiceLabel(),
+        durationSec: Number(durationSec) || 0
+      };
+      if (callerNumber) {
+        payload.callerNumber = String(callerNumber);
+      }
+
+      if (state.nativeCloudMode) {
+        try { window.AndroidBridge.nativePushCallLog(JSON.stringify(payload)); } catch (_) {}
+        return;
+      }
+
+      if (!state.db) return;
+      try {
+        await push(ref(state.db, "callLogs"), {
+          ...payload,
+          timestamp: serverTimestamp()
+        });
+      } catch (err) {
+        console.error("Failed to save call log:", err);
+      }
+    }
+
+    function subscribeCallLogs() {
+      if (!state.db) return;
+      const logsQuery = query(
+        ref(state.db, "callLogs"),
+        orderByChild("timestamp"),
+        limitToLast(30)
+      );
+
+      state.logsUnsub = onValue(logsQuery, (snapshot) => {
+        const items = [];
+        snapshot.forEach((child) => {
+          items.push({ id: child.key, ...child.val() });
+        });
+        // Sort newest first
+        items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        state.logsData = items;
+        renderCallLogs(items);
+      }, (err) => {
+        console.warn("Call logs listener error:", err);
+      });
+    }
+
+    function updateLastCallerBanner(items) {
+      const lastIncoming = items.find((it) => it.direction === "Incoming") || items[0] || null;
+      if (!lastIncoming) {
+        state.lastCallerTarget = null;
+        el.lastCallerBanner.classList.remove("show");
+        return;
+      }
+      const target = normalizeIndianOrRoom(lastIncoming.callerNumber || lastIncoming.roomCode);
+      if (!target) {
+        state.lastCallerTarget = null;
+        el.lastCallerBanner.classList.remove("show");
+        return;
+      }
+      state.lastCallerTarget = target;
+      const blocked = isNumberBlocked(target);
+      el.lastCallerDisplay.textContent = formatIndianOrRoom(target);
+      el.lastCallerMeta.textContent = `${lastIncoming.direction || "Call"} · ${formatTimestamp(lastIncoming.timestamp)}${blocked ? " · Currently Blocked" : ""}`;
+      el.blockLastCallerBtn.textContent = blocked ? "Unblock Caller" : "Block Last Caller";
+      el.blockLastCallerBtn.classList.toggle("unblock", blocked);
+      el.lastCallerBanner.classList.add("show");
+    }
+
+    function renderCallLogs(items) {
+      el.logsCountBadge.textContent = String(items.length);
+      el.logsCountBadge.classList.toggle("show", items.length > 0);
+      el.clearLogsBtn.style.display = items.length > 0 ? "inline-flex" : "none";
+      updateLastCallerBanner(items);
+
+      if (!state.firebaseReady) {
+        el.logsList.innerHTML = `
+          <div class="empty-state">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <h3>Connect Firebase Realtime Database</h3>
+            <p>Configure your Firebase project credentials to sync call logs across devices. Local &amp; Android +91 blocklist protection is already active.</p>
+          </div>`;
+        return;
+      }
+
+      if (items.length === 0) {
+        el.logsList.innerHTML = `
+          <div class="empty-state">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
+            </svg>
+            <h3>No Calls Yet</h3>
+            <p>Completed, declined, missed, and blocked calls will appear here in real time.</p>
+          </div>`;
+        return;
+      }
+
+      el.logsList.innerHTML = "";
+      items.forEach((item) => {
+        const statusKey = (item.status || "Missed").toLowerCase();
+        const badgeCls =
+          statusKey === "completed" ? "completed"
+          : statusKey === "blocked" ? "blocked"
+          : statusKey === "declined" ? "declined"
+          : "missed";
+        const isOutgoing = item.direction === "Outgoing";
+        const blockTarget = normalizeIndianOrRoom(item.callerNumber || item.roomCode) || String(item.roomCode || "");
+        const targetBlocked = isNumberBlocked(blockTarget);
+
+        const card = document.createElement("div");
+        card.className = "log-item";
+
+        const dirSvg = isOutgoing
+          ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>`
+          : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg>`;
+
+        const primaryLabel = item.callerNumber
+          ? formatIndianOrRoom(item.callerNumber)
+          : formatRoomCode(item.roomCode);
+        const roomSub = item.callerNumber
+          ? `<span>Room ${escapeHtml(formatRoomCode(item.roomCode))}</span><span>·</span>`
+          : "";
+
+        card.innerHTML = `
+          <div class="log-dir-icon ${badgeCls}" title="${escapeHtml(item.direction || "Call")}">
+            ${dirSvg}
+          </div>
+          <div class="log-body">
+            <div class="log-row-top">
+              <span class="log-room">${escapeHtml(primaryLabel)}</span>
+              <span class="log-badge ${badgeCls}">${escapeHtml(item.status || "Missed")}</span>
+            </div>
+            <div class="log-meta">
+              ${roomSub}
+              <span>${escapeHtml(item.direction || "Call")}</span>
+              <span>·</span>
+              <span>${escapeHtml(formatTimestamp(item.timestamp))}</span>
+              <span>·</span>
+              <span style="font-family:var(--font-mono);color:var(--text-primary);">${formatDuration(item.durationSec || 0)}</span>
+            </div>
+            <span class="log-preset-pill">${escapeHtml(item.voicePreset || "Normal (0 st)")}</span>
+          </div>
+          <div class="log-actions-col">
+            <button class="btn-call-again" data-room="${escapeHtml(String(item.roomCode || ""))}" aria-label="Call ${escapeHtml(String(item.roomCode || ""))} Again">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+              Call
+            </button>
+            <button class="btn-block-row ${targetBlocked ? "is-blocked" : ""}" aria-label="${targetBlocked ? "Unblock" : "Block"} ${escapeHtml(blockTarget)}">
+              ${targetBlocked ? "Unblock" : "Block"}
+            </button>
+          </div>
+        `;
+
+        const callAgainBtn = card.querySelector(".btn-call-again");
+        callAgainBtn.addEventListener("click", () => {
+          const rawTarget = String(item.callerNumber || item.roomCode || "");
+          const norm = normalizeIndianOrRoom(rawTarget);
+          const dialDigits = norm && norm.startsWith("+91") ? norm.slice(3) : rawTarget.replace(/\D/g, "").slice(0, 10);
+          el.roomCodeInput.value = dialDigits;
+          updateCallButtonState();
+          switchTab("dialer");
+          switchDialerMode("caller");
+          showToast(`${formatIndianOrRoom(norm || dialDigits)} ready to call`);
+        });
+
+        const blockRowBtn = card.querySelector(".btn-block-row");
+        blockRowBtn.addEventListener("click", () => {
+          if (targetBlocked) {
+            removeBlockedNumber(blockTarget);
+          } else {
+            addBlockedNumber(blockTarget, `Blocked from Call Logs (${item.direction || "Call"})`);
+          }
+        });
+
+        el.logsList.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // 15. VOICE CONTROLS & UI SYNCHRONIZATION
+    // =========================================================================
+    function getCurrentVoiceLabel() {
+      const preset = VOICE_PRESETS[state.currentPresetId];
+      if (preset && Math.abs(preset.semitones - state.semitones) < 0.01) {
+        return preset.label;
+      }
+      const sign = state.semitones > 0 ? "+" : "";
+      return `Custom (${sign}${state.semitones.toFixed(1)} st)`;
+    }
+
+    function selectVoicePreset(presetId) {
+      const preset = VOICE_PRESETS[presetId];
+      if (!preset) return;
+      state.currentPresetId = presetId;
+      state.semitones = preset.semitones;
+      syncVoiceControlsUI();
+      audioEngine.applyPitchAndEQ(state.semitones, state.currentPresetId);
+    }
+
+    function setCustomSemitones(val) {
+      const num = Math.max(-8, Math.min(8, parseFloat(val) || 0));
+      state.semitones = num;
+      // Match preset if exact semitone value matches
+      const match = Object.values(VOICE_PRESETS).find((p) => Math.abs(p.semitones - num) < 0.01);
+      state.currentPresetId = match ? match.id : "custom";
+      syncVoiceControlsUI();
+      audioEngine.applyPitchAndEQ(state.semitones, state.currentPresetId);
+    }
+
+    function syncVoiceControlsUI() {
+      const sign = state.semitones > 0 ? "+" : "";
+      const stStr = `${sign}${state.semitones.toFixed(1)} st`;
+      el.semitoneSlider.value = String(state.semitones);
+      el.inCallSemitoneSlider.value = String(state.semitones);
+      el.semitoneReadout.textContent = stStr;
+      el.inCallSemitoneReadout.textContent = stStr;
+
+      const label = getCurrentVoiceLabel();
+      el.activePresetBadge.textContent = label;
+      el.incomingPresetPill.textContent = `Voice: ${label}`;
+
+      document.querySelectorAll("#mainPresetsGrid .preset-pill").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.preset === state.currentPresetId);
+      });
+      document.querySelectorAll("#inCallPresetsRow .incall-pill").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.preset === state.currentPresetId);
+      });
+    }
+
+    async function toggleMicMonitor(enable) {
+      state.monitorEnabled = enable;
+      syncMonitorUI();
+      if (enable) {
+        try {
+          await audioEngine.ensureStarted();
+          audioEngine.setMonitor(true);
+          showToast("Mic Monitor ON — use earphones to avoid echo");
+        } catch (err) {
+          state.monitorEnabled = false;
+          syncMonitorUI();
+          showToast("Mic permission needed: " + err.message);
+        }
+      } else {
+        audioEngine.setMonitor(false);
+        if (!state.callActive) {
+          audioEngine.stopAll();
+        }
+      }
+    }
+
+    function syncMonitorUI() {
+      el.micMonitorToggle.checked = state.monitorEnabled;
+      el.inCallMonitorBtn.classList.toggle("monitor-on", state.monitorEnabled);
+    }
+
+    function syncMuteUI() {
+      el.muteToggleBtn.classList.toggle("active", state.isMuted);
+      el.muteLabel.textContent = state.isMuted ? "Unmute" : "Mute";
+    }
+
+    // =========================================================================
+    // 16. NAVIGATION, DIALPAD & HELPERS
+    // =========================================================================
+    function switchTab(tab) {
+      state.activeTab = tab;
+      el.dialerView.classList.toggle("active", tab === "dialer");
+      el.logsView.classList.toggle("active", tab === "logs");
+      el.navDialer.classList.toggle("active", tab === "dialer");
+      el.navLogs.classList.toggle("active", tab === "logs");
+      el.confirmClearBar.classList.remove("open");
+    }
+
+    function switchDialerMode(mode) {
+      state.dialerMode = mode;
+      el.callerPanel.classList.toggle("active", mode === "caller");
+      el.hostPanel.classList.toggle("active", mode === "host");
+      el.modeCallerBtn.classList.toggle("active", mode === "caller");
+      el.modeHostBtn.classList.toggle("active", mode === "host");
+      el.modeCallerBtn.setAttribute("aria-selected", String(mode === "caller"));
+      el.modeHostBtn.setAttribute("aria-selected", String(mode === "host"));
+    }
+
+    function updateCallButtonState() {
+      const clean = el.roomCodeInput.value.replace(/\D/g, "").slice(0, 10);
+      if (el.roomCodeInput.value !== clean) el.roomCodeInput.value = clean;
+      el.callNowBtn.disabled = !normalizeIndianOrRoom(clean);
+    }
+
+    function setStatusChip(kind, text) {
+      el.statusChip.className = `status-chip ${kind}`;
+      el.statusChipText.textContent = text;
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      el.toast.textContent = msg;
+      el.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.toast.classList.remove("show"), 2600);
+    }
+
+    function formatDuration(totalSec) {
+      const s = Math.max(0, Math.floor(totalSec));
+      const mins = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${String(mins).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
+    }
+
+    function formatTimestamp(ts) {
+      if (!ts) return "Just now";
+      const d = new Date(ts);
+      return d.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function copyText(text) {
+      if (window.AndroidBridge && typeof window.AndroidBridge.copyToClipboard === "function") {
+        window.AndroidBridge.copyToClipboard(text);
+        return true;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (_) {}
+      }
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    }
+
+    function notifyAndroidCallActive(active) {
+      if (window.AndroidBridge && typeof window.AndroidBridge.setCallActive === "function") {
+        try { window.AndroidBridge.setCallActive(Boolean(active)); } catch (_) {}
+      }
+    }
+
+    // Android hardware back-button hook
+    window.handleAndroidBack = () => {
+      if (el.configModal.classList.contains("open")) {
+        el.configModal.classList.remove("open");
+        return true;
+      }
+      if (state.callActive || state.callStatus === "ringing-in") {
+        return true; // Prevent accidental exit mid-call
+      }
+      if (state.activeTab === "logs") {
+        switchTab("dialer");
+        return true;
+      }
+      return false;
+    };
+
+    // =========================================================================
+    // 17. FIREBASE CONFIG MODAL HELPERS
+    // =========================================================================
+    function openConfigModal() {
+      const current = getActiveFirebaseConfig();
+      el.configTextarea.value = JSON.stringify(current, null, 2);
+      el.configModal.classList.add("open");
+    }
+
+    function parseLooseFirebaseConfig(rawText) {
+      const trimmed = rawText.trim();
+      // Attempt strict JSON first
+      try {
+        return JSON.parse(trimmed);
+      } catch (_) {}
+      // Allow pasting JS object literal from Firebase Console (unquoted keys)
+      const objMatch = trimmed.match(/\{[\s\S]*\}/);
+      if (!objMatch) throw new Error("Paste a valid JSON or Firebase config object.");
+      const jsonLike = objMatch[0]
+        .replace(/\/\/.*$/gm, "")
+        .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+        .replace(/'/g, '"')
+        .replace(/,\s*}/g, "}");
+      return JSON.parse(jsonLike);
+    }
+
+    // =========================================================================
+    // 18. EVENT LISTENERS
+    // =========================================================================
+    el.navDialer.addEventListener("click", () => switchTab("dialer"));
+    el.navLogs.addEventListener("click", () => switchTab("logs"));
+
+    el.modeCallerBtn.addEventListener("click", () => switchDialerMode("caller"));
+    el.modeHostBtn.addEventListener("click", () => switchDialerMode("host"));
+
+    el.roomCodeInput.addEventListener("input", updateCallButtonState);
+
+    el.dialpad.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const key = btn.dataset.key;
+      const action = btn.dataset.action;
+
+      if (key !== undefined) {
+        if (el.roomCodeInput.value.length < 10) {
+          el.roomCodeInput.value += key;
+          updateCallButtonState();
+        }
+      } else if (action === "backspace") {
+        el.roomCodeInput.value = el.roomCodeInput.value.slice(0, -1);
+        updateCallButtonState();
+      } else if (action === "clear") {
+        el.roomCodeInput.value = "";
+        updateCallButtonState();
+      }
+    });
+
+    el.callNowBtn.addEventListener("click", placeOutgoingCall);
+
+    if (el.myReceiveNumberInput) {
+      el.myReceiveNumberInput.addEventListener("input", () => {
+        const clean = el.myReceiveNumberInput.value.replace(/\D/g, "").slice(0, 10);
+        if (el.myReceiveNumberInput.value !== clean) el.myReceiveNumberInput.value = clean;
+        renderHostCode();
+      });
+    }
+
+    if (el.copyCodeBtn) {
+      el.copyCodeBtn.addEventListener("click", async () => {
+        await copyText(formatIndianOrRoom(state.hostRoomCode));
+        showToast(`Number ${formatIndianOrRoom(state.hostRoomCode)} copied!`);
+      });
+    }
+
+    if (el.newCodeBtn) {
+      el.newCodeBtn.addEventListener("click", () => {
+        if (state.isHostWaiting) return;
+        state.hostRoomCode = generateRoomCode();
+        renderHostCode();
+      });
+    }
+
+    el.toggleHostBtn.addEventListener("click", () => {
+      if (state.isHostWaiting) {
+        stopHostListening(true);
+      } else {
+        startHostListening();
+      }
+    });
+
+    el.mainPresetsGrid.addEventListener("click", (e) => {
+      const pill = e.target.closest(".preset-pill");
+      if (pill) selectVoicePreset(pill.dataset.preset);
+    });
+
+    el.inCallPresetsRow.addEventListener("click", (e) => {
+      const pill = e.target.closest(".incall-pill");
+      if (pill) selectVoicePreset(pill.dataset.preset);
+    });
+
+    el.semitoneSlider.addEventListener("input", (e) => setCustomSemitones(e.target.value));
+    el.inCallSemitoneSlider.addEventListener("input", (e) => setCustomSemitones(e.target.value));
+    el.semitoneReadout.addEventListener("click", () => selectVoicePreset("normal"));
+    el.inCallSemitoneReadout.addEventListener("click", () => selectVoicePreset("normal"));
+
+    el.micMonitorToggle.addEventListener("change", (e) => toggleMicMonitor(e.target.checked));
+    el.inCallMonitorBtn.addEventListener("click", () => toggleMicMonitor(!state.monitorEnabled));
+
+    el.acceptCallBtn.addEventListener("click", acceptIncomingCall);
+    el.declineCallBtn.addEventListener("click", declineIncomingCall);
+    el.endCallBtn.addEventListener("click", () => endCurrentCall({ initiatedByLocal: true }));
+
+    el.muteToggleBtn.addEventListener("click", () => {
+      state.isMuted = !state.isMuted;
+      audioEngine.setMuted(state.isMuted);
+      syncMuteUI();
+    });
+
+    el.speakerVolSlider.addEventListener("input", (e) => {
+      const pct = Number(e.target.value);
+      el.speakerVolReadout.textContent = `${pct}%`;
+      el.remoteAudio.volume = pct / 100;
+    });
+
+    // Blocklist & Last Caller Action Listeners
+    el.blockLastCallerBtn.addEventListener("click", async () => {
+      const target = state.lastCallerTarget;
+      if (!target) return;
+      if (isNumberBlocked(target)) {
+        await removeBlockedNumber(target);
+      } else {
+        await addBlockedNumber(target, "Last Caller Blacklist");
+      }
+    });
+
+    el.addBlockBtn.addEventListener("click", async () => {
+      const val = el.blockNumberInput.value.trim();
+      if (!val) {
+        showToast("Enter a 10-digit Indian +91 mobile number or 6-digit room.");
+        return;
+      }
+      const ok = await addBlockedNumber(val, "Manual +91 Blacklist");
+      if (ok) el.blockNumberInput.value = "";
+    });
+
+    el.blockNumberInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") el.addBlockBtn.click();
+    });
+
+    el.callerNumberInput.addEventListener("blur", () => {
+      const raw = el.callerNumberInput.value.trim();
+      if (!raw) {
+        try { localStorage.removeItem(STORAGE_KEY_CALLER_NUM); } catch (_) {}
+        return;
+      }
+      const norm = normalizeIndianOrRoom(raw);
+      if (norm && norm.startsWith("+91")) {
+        el.callerNumberInput.value = norm.slice(3);
+        try { localStorage.setItem(STORAGE_KEY_CALLER_NUM, norm); } catch (_) {}
+      }
+    });
+
+    // Clear All Call Logs (inline confirmation)
+    el.clearLogsBtn.addEventListener("click", () => {
+      if (!state.firebaseReady || (!state.nativeCloudMode && !state.db)) return;
+      el.confirmClearBar.classList.add("open");
+    });
+
+    el.cancelClearBtn.addEventListener("click", () => {
+      el.confirmClearBar.classList.remove("open");
+    });
+
+    el.confirmClearBtn.addEventListener("click", async () => {
+      el.confirmClearBar.classList.remove("open");
+      if (state.nativeCloudMode) {
+        try {
+          window.AndroidBridge.nativeClearCallLogs();
+          showToast("Call history cleared");
+        } catch (err) {
+          showToast("Failed to clear logs: " + err.message);
+        }
+        return;
+      }
+      if (!state.db) return;
+      try {
+        await remove(ref(state.db, "callLogs"));
+        showToast("Call history cleared");
+      } catch (err) {
+        showToast("Failed to clear logs: " + err.message);
+      }
+    });
+
+    // Share App File Listener (Android native FileProvider sheet or standalone Web Share / Download)
+    el.shareAppBtn.addEventListener("click", async () => {
+      if (window.AndroidBridge && typeof window.AndroidBridge.openShareAppSheet === "function") {
+        window.AndroidBridge.openShareAppSheet();
+        return;
+      }
+      try {
+        const htmlSource = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+        const file = new File([htmlSource], "VoxShift-VoIP.html", { type: "text/html" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "VoxShift VoIP App",
+            text: "Open VoxShift-VoIP.html for live voice-changing VoIP calling.",
+            files: [file]
+          });
+          showToast("App file shared");
+          return;
+        }
+        const blobUrl = URL.createObjectURL(file);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = "VoxShift-VoIP.html";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        showToast("Downloaded VoxShift-VoIP.html");
+      } catch (err) {
+        if (err && err.name !== "AbortError") {
+          showToast("Could not share file: " + err.message);
+        }
+      }
+    });
+
+    // Firebase Config Modal Listeners
+    el.openConfigBtn.addEventListener("click", openConfigModal);
+    el.bannerConfigBtn.addEventListener("click", openConfigModal);
+    el.closeConfigBtn.addEventListener("click", () => el.configModal.classList.remove("open"));
+    el.configModal.addEventListener("click", (e) => {
+      if (e.target === el.configModal) el.configModal.classList.remove("open");
+    });
+
+    el.saveConfigBtn.addEventListener("click", async () => {
+      try {
+        const parsed = parseLooseFirebaseConfig(el.configTextarea.value);
+        if (isPlaceholderConfig(parsed)) {
+          showToast("Please include valid apiKey, projectId, and https:// databaseURL.");
+          return;
+        }
+        localStorage.setItem(STORAGE_KEY_FB, JSON.stringify(parsed));
+        el.configModal.classList.remove("open");
+        const ok = await initFirebase();
+        if (ok) showToast("Connected to Firebase Realtime Database!");
+      } catch (err) {
+        showToast("Invalid config format: " + err.message);
+      }
+    });
+
+    el.resetConfigBtn.addEventListener("click", async () => {
+      localStorage.removeItem(STORAGE_KEY_FB);
+      el.configModal.classList.remove("open");
+      await initFirebase();
+      showToast("Reset to embedded firebaseConfig");
+    });
+
+    // Cleanup on page unload
+    window.addEventListener("beforeunload", () => {
+      if (state.callActive) {
+        endCurrentCall({ initiatedByLocal: true });
+      } else if (state.isHostWaiting) {
+        stopHostListening(true);
+      }
+    });
+
+    // =========================================================================
+    // 19. BOOTSTRAP
+    // =========================================================================
+    try {
+      const savedCaller = localStorage.getItem(STORAGE_KEY_CALLER_NUM);
+      if (savedCaller && savedCaller.startsWith("+91")) {
+        el.callerNumberInput.value = savedCaller.slice(3);
+        if (el.myReceiveNumberInput) el.myReceiveNumberInput.value = savedCaller.slice(3);
+      }
+    } catch (_) {}
+    renderHostCode();
+    renderBlockedNumbers();
+    selectVoicePreset("femaleSoft");
+    startWaveformLoop();
+    initFirebase();
+  </script>
+</body>
+</html>
